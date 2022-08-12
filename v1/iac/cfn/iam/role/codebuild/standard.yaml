@@ -1,0 +1,258 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create an IAM Role for CodeBuilds - (v1.0.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  ProjectName:
+    Type: "String"
+    Description: "The base name of the CodeBuild project (e.g. foo-bar-baz)."
+  # General Configuration
+  CodeBuildVpcPublicSubnets:
+    Type: "String"
+    Description: "Should this CodeBuild instance use the VPC public subnets?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "No"
+  ExternalArtifactBucket:
+    Type: "String"
+    Description: "An external artifact bucket that we need to push files to from the current account."
+    Default: ""
+Conditions:
+  CodeBuildVpcPublicSubnets: !Equals [ !Ref CodeBuildVpcPublicSubnets, "Yes" ]
+  ExternalArtifactBucket: !Not [ !Equals [ !Ref ExternalArtifactBucket, "" ] ]
+Resources:
+  Role:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: "Allow"
+          Principal:
+            Service:
+            - "codebuild.amazonaws.com"
+          Action:
+          - "sts:AssumeRole"
+      Policies:
+      - PolicyName: "root"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource: "*"
+            Effect: "Allow"
+            Action:
+            - "logs:CreateLogGroup"
+            - "logs:CreateLogStream"
+            - "logs:PutLogEvents"
+          - Resource: "*"
+            Effect: "Allow"
+            Action:
+            - "cloudwatch:PutMetricData"
+          - Resource:
+            - !Sub "arn:aws:s3:::{{resolve:ssm:/s3/${InfrastructureName}/bucket/artifact/name}}/*"
+            - !Sub "arn:aws:s3:::{{resolve:ssm:/s3/${InfrastructureName}/bucket/codepipeline/name}}/*"
+            - !If [ ExternalArtifactBucket, !Sub "arn:aws:s3:::${ExternalArtifactBucket}/*", !Ref "AWS::NoValue" ]
+            Effect: "Allow"
+            Action:
+            - "s3:AbortMultipartUpload"
+            - "s3:GetObject"
+            - "s3:GetObjectAcl"
+            - "s3:GetObjectVersion"
+            - "s3:PutObject"
+            - "s3:PutObjectAcl"
+          - Resource: "*"
+            Effect: "Allow"
+            Action:
+            - "kms:GenerateDataKey"
+            - "kms:Decrypt"
+          - Resource: "*"
+            Effect: "Allow"
+            Action:
+            - "ssm:GetParameters"
+          - Resource: "*"
+            Effect: "Allow"
+            Action:
+            - "secretsmanager:*"
+          - Resource: "*"
+            Effect: "Allow"
+            Action:
+            - "ecr:BatchGetImage"
+            - "ecr:BatchCheckLayerAvailability"
+            - "ecr:CompleteLayerUpload"
+            - "ecr:DescribeImages"
+            - "ecr:GetAuthorizationToken"
+            - "ecr:GetDownloadUrlForLayer"
+            - "ecr:InitiateLayerUpload"
+            - "ecr:PutImage"
+            - "ecr:PutImageScanningConfiguration"
+            - "ecr:UploadLayerPart"
+          - Resource: "*"
+            Effect: "Allow"
+            Action:
+            - "codebuild:CreateReportGroup"
+            - "codebuild:CreateReport"
+            - "codebuild:UpdateReport"
+            - "codebuild:BatchPutTestCases"
+          - Resource: "*"
+            Effect: "Allow"
+            Action:
+            - "codepipeline:DeleteWebhook"
+            - "codepipeline:DeregisterWebhookWithThirdParty"
+            - "codepipeline:GetJobDetails"
+            - "codepipeline:GetPipeline"
+            - "codepipeline:GetPipelineExecution"
+            - "codepipeline:GetPipelineState"
+            - "codepipeline:GetThirdPartyJobDetails"
+            - "codepipeline:ListActionTypes"
+            - "codepipeline:ListPipelines"
+            - "codepipeline:ListWebhooks"
+            - "codepipeline:PutApprovalResult"
+            - "codepipeline:PutWebhook"
+            - "codepipeline:RegisterWebhookWithThirdParty"
+          - Resource: "*"
+            Effect: "Allow"
+            Action:
+            - "ec2:CreateNetworkInterface"
+            - "ec2:DescribeDhcpOptions"
+            - "ec2:DeleteNetworkInterface"
+            - "ec2:DescribeNetworkInterfaces"
+            - "ec2:DescribeSecurityGroups"
+            - "ec2:DescribeSubnets"
+            - "ec2:DescribeVpcs"
+          - Resource: !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:network-interface/*"
+            Effect: "Allow"
+            Action:
+            - "ec2:CreateNetworkInterfacePermission"
+            Condition:
+              StringEquals:
+                ec2:Subnet:
+                - !If
+                  - CodeBuildVpcPublicSubnets
+                  - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/{{resolve:ssm:/vpc/${InfrastructureName}/subnet/public/zone/one}}"
+                  - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/one}}"
+                - !If
+                  - CodeBuildVpcPublicSubnets
+                  - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/{{resolve:ssm:/vpc/${InfrastructureName}/subnet/public/zone/two}}"
+                  - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/two}}"
+                - !If
+                  - CodeBuildVpcPublicSubnets
+                  - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/{{resolve:ssm:/vpc/${InfrastructureName}/subnet/public/zone/three}}"
+                  - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/three}}"
+                ec2:AuthorizedService: "codebuild.amazonaws.com"
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/environment}}"
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  ParamRoleName:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      DataType: "text"
+      Description: "The role name."
+      Name: !Sub "/iam/${InfrastructureName}/role/codebuild/${ProjectName}/standard/name"
+      Tier: "Standard"
+      Type: "String"
+      Value: !Ref Role
+      Tags:
+        Name: !Ref "AWS::StackName"
+        application: !Ref "AWS::StackName"
+        customer: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+        contact-email: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+        environment: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/environment}}"
+        team: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  ParamRoleArn:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      DataType: "text"
+      Description: "The role ARN."
+      Name: !Sub "/iam/${InfrastructureName}/role/codebuild/${ProjectName}/standard/arn"
+      Tier: "Standard"
+      Type: "String"
+      Value: !GetAtt Role.Arn
+      Tags:
+        Name: !Ref "AWS::StackName"
+        application: !Ref "AWS::StackName"
+        customer: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+        contact-email: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+        environment: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/environment}}"
+        team: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  ParamRoleId:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      DataType: "text"
+      Description: "The role ID."
+      Name: !Sub "/iam/${InfrastructureName}/role/codebuild/${ProjectName}/standard/id"
+      Tier: "Standard"
+      Type: "String"
+      Value: !GetAtt Role.RoleId
+      Tags:
+        Name: !Ref "AWS::StackName"
+        application: !Ref "AWS::StackName"
+        customer: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+        contact-email: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+        environment: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/environment}}"
+        team: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  RoleName:
+    Description: "The name of the CodeBuild IAM Role."
+    Value: !Ref Role
+    Export:
+      Name: !Sub "${AWS::StackName}-RoleName"
+  RoleArn:
+    Description: "The ARN of the CodeBuild IAM Role."
+    Value: !GetAtt Role.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-RoleArn"
+  RoleId:
+    Description: "The ID of the CodeBuild IAM Role."
+    Value: !GetAtt Role.RoleId
+    Export:
+      Name: !Sub "${AWS::StackName}-RoleId"
+  # SSM Parameter
+  ParamRoleName:
+    Description: "The role name SSM parameter."
+    Value: !Ref ParamRoleName
+    Export:
+      Name: !Sub "${AWS::StackName}-ParamRoleName"
+  ParamRoleArn:
+    Description: "The role ARN SSM parameter."
+    Value: !Ref ParamRoleArn
+    Export:
+      Name: !Sub "${AWS::StackName}-ParamRoleArn"
+  ParamRoleId:
+    Description: "The role ID SSM parameter."
+    Value: !Ref ParamRoleId
+    Export:
+      Name: !Sub "${AWS::StackName}-ParamRoleId"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+      - ProjectName
+      - CodeBuildVpcPublicSubnets
+      - ExternalArtifactBucket
+    ParameterLabels:
+      # General Configuration
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      ProjectName:
+        default: "Project Name:"
+      CodeBuildVpcPublicSubnets:
+        default: "CodeBuild VPC Public Subnets:"
+      ExternalArtifactBucket:
+        default: "External Artifact Bucket:"

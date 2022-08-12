@@ -1,0 +1,197 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create an ECS image repository (ECR) - (v1.0.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  # ECR Configuration
+  EcsRepositoryName:
+    Type: "String"
+    Description: "The base name of the ECS Repository (e.g. boilerplate/foo). The environment will automatically be added to the end."
+    Default: "boilerplate/fargate-nodejs"
+  EcrExternalAccount:
+    Type: "String"
+    Description: "An Account ID needed for the production ECS repository in order to allow pushes from the non-prod CodePipelines."
+    Default: "222221111111"
+  EcrNonProdImageCount:
+    Type: "String"
+    Description: "The number of non-prod ECR images to keep."
+    Default: "100"
+  EcrProdImageCount:
+    Type: "String"
+    Description: "The number of production ECR images to keep."
+    Default: "30"
+  EcrImageScanning:
+    Type: "String"
+    Description: "Enable automatic image vulnerability scanning?"
+    AllowedValues:
+    - "true"
+    - "false"
+    Default: "true"  
+  EcrImageTagMutability:
+    Type: "String"
+    Description: "Should tags be mutable or immutable?"
+    AllowedValues:
+    - "MUTABLE"
+    - "IMMUTABLE"
+    Default: "MUTABLE"
+  # Tags
+  TagEnvironment:
+    Type: "String"
+    Description: "What is the environment tag?"
+    AllowedValues:
+    - "int"
+    - "qa"
+    - "stage"
+    - "nonprod"
+    - "prod"
+    - "build"
+    Default: "int"
+Conditions:
+  Production: !Equals [!Ref TagEnvironment, "prod"]
+  NonProduction: !Not
+  - !Condition Production
+Resources:
+  NonProdEcr:
+    Condition: NonProduction
+    Type: "AWS::ECR::Repository"
+    Properties:
+      RepositoryName: !Ref EcsRepositoryName
+      ImageScanningConfiguration:
+        scanOnPush: !Ref EcrImageScanning
+      ImageTagMutability: !Ref EcrImageTagMutability
+      LifecyclePolicy:
+        LifecyclePolicyText: !Sub |
+          {
+            "rules": [
+            {
+              "rulePriority": 1,
+              "description": "Keep the most recent ${EcrNonProdImageCount} images.",
+              "selection": {
+                "tagStatus": "any",
+                "countType": "imageCountMoreThan",
+                "countNumber": ${EcrNonProdImageCount}
+              },
+              "action": { "type": "expire" }
+            }]
+          }
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  ProdEcr:
+    Condition: Production
+    Type: "AWS::ECR::Repository"
+    Properties:
+      RepositoryName: !Ref EcsRepositoryName
+      ImageScanningConfiguration:
+        scanOnPush: !Ref EcrImageScanning
+      ImageTagMutability: !Ref EcrImageTagMutability
+      LifecyclePolicy:
+        LifecyclePolicyText: !Sub |
+          {
+            "rules": [
+            {
+              "rulePriority": 1,
+              "description": "Keep the most recent ${EcrProdImageCount} images.",
+              "selection": {
+                "tagStatus": "any",
+                "countType": "imageCountMoreThan",
+                "countNumber": ${EcrProdImageCount}
+              },
+              "action": { "type": "expire" }
+            }]
+          }
+      RepositoryPolicyText:
+        Version: "2012-10-17"
+        Statement:
+        - Sid: "FullAccess"
+          Effect: "Allow"
+          Principal:
+            AWS:
+            - !Sub "arn:aws:iam::${AWS::AccountId}:root"
+          Action:
+          - "ecr:*"
+        - Sid: "PushOnly"
+          Effect: "Allow"
+          Principal:
+            AWS:
+            - !Sub "arn:aws:iam::${EcrExternalAccount}:root"
+          Action:
+          - "ecr:BatchGetImage"
+          - "ecr:BatchCheckLayerAvailability"
+          - "ecr:CompleteLayerUpload"
+          - "ecr:DescribeImages"
+          - "ecr:GetAuthorizationToken"
+          - "ecr:GetDownloadUrlForLayer"
+          - "ecr:InitiateLayerUpload"
+          - "ecr:PutImage"
+          - "ecr:PutImageScanningConfiguration"
+          - "ecr:UploadLayerPart"
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  Ecr:
+    Description: "The ECS repository that was created."
+    Value: !If [ Production, !Ref ProdEcr, !Ref NonProdEcr ]
+    Export:
+      Name: !Sub "${AWS::StackName}-Ecr"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+    - Label:
+        default: "ECS Repository (ECR) Configuration"
+      Parameters:
+      - EcsRepositoryName
+      - EcrExternalAccount
+      - EcrNonProdImageCount
+      - EcrProdImageCount
+      - EcrImageScanning
+      - EcrImageTagMutability
+    - Label:
+        default: "Tags"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      EcsRepositoryName:
+        default: "ECS Repository Name:"
+      EcrExternalAccount:
+        default: "ECR External Account:"
+      EcrNonProdImageCount:
+        default: "ECR Non-Prod Image Count:"
+      EcrProdImageCount:
+        default: "ECR Production Image Count:"
+      EcrImageScanning:
+        default: "ECR Image Scanning:"
+      EcrImageTagMutability:
+        default: "ECR Tag Mutability:"
+      TagEnvironment:
+        default: "Environment:"

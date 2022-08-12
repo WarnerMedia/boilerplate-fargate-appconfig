@@ -1,0 +1,7 @@
+README.md
+v1/build/codebuild/buildspec/custom/*
+v1/build/codebuild/buildspec/orchestrator/*
+v1/build/codebuild/scripts/orchestrator/*
+v1/iac/cfn/*
+v1/node_modules/*
+v1/README.md

@@ -1,0 +1,28 @@
+{
+  "name": "boilerplate-fargate-nodejs",
+  "version": "1.0.0",
+  "description": "This is a Boilerplate Node.js Fargate application.",
+  "main": "src/app.js",
+  "repository": {
+    "type": "git"
+  },
+  "scripts": {
+    "test-app": "./node_modules/.bin/cucumber-js --format json:./test/cucumber/output/results.json ./test/cucumber/app/**/*.feature",
+    "test-infrastructure": "./node_modules/.bin/cucumber-js --format json:./test/cucumber/output/results.json ./test/cucumber/infrastructure/**/*.feature",
+    "test-security": "./node_modules/.bin/cucumber-js --format json:./test/cucumber/output/results.json ./test/cucumber/security/**/*.feature"
+  },
+  "author": "Warner Media, LLC",
+  "license": "MIT",
+  "dependencies": {
+    "basic-auth": "^1.1.0"
+  },
+  "devDependencies": {
+    "cucumber": "^6.0.5",
+    "dns": "^0.2.2",
+    "got": "^10.5.7",
+    "is-http2": "^1.2.0",
+    "node-libcurl": "^2.3.3",
+    "path": "^0.12.7",
+    "tls": "0.0.1"
+  }
+}

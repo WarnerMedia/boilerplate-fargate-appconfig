@@ -1,0 +1,6 @@
+{
+  "Parameters": {
+    "SecuritySecret": "account/main/security:key",
+    "CodeBuildSpecPath": "build/aws/codebuild/buildspec/test/security/amzn2.yaml"
+  }
+}

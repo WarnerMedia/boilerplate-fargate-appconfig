@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Set up a Fargate-only cluster with capacity providers."
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  ClusterName:
+    Type: "String"
+    Description: "What is name for this cluster?"
+  ContainerInsights:
+    Type: "String"
+    Description: "Should ECS Container Insights be disabled or enabled."
+    AllowedValues:
+    - "disabled"
+    - "enabled"
+    Default: "enabled"
+  CapacityProviders:
+    Type: "CommaDelimitedList"
+    Description: "A comma-delimited list of ECS Capacity Providers."
+    Default: "FARGATE,FARGATE_SPOT"
+  DefaultCapacityProviderBase:
+    Type: "Number"
+    Description: "What is the default capacity provider base for this cluster?"
+    Default: 0
+  DefaultCapacityProviderName:
+    Type: "String"
+    Description: "What is the default capacity provider name for this cluster?"
+    Default: "FARGATE_SPOT"
+  DefaultCapacityProviderWeight:
+    Type: "Number"
+    Description: "What is the default capacity provider weight for this cluster?"
+    Default: 12 #Setting 12 as the default since it divides more evenly than 10
+  TagEnvironment:
+    Type: "String"
+    Description: "What is the environment tag?"
+Resources:
+  Cluster:
+    Type: "AWS::ECS::Cluster"
+    Properties:
+      ClusterName: !Ref ClusterName
+      ClusterSettings:
+      - Name: "containerInsights"
+        Value: !Ref ContainerInsights
+      CapacityProviders: !Ref CapacityProviders
+      DefaultCapacityProviderStrategy:
+      - Base: !Ref DefaultCapacityProviderBase
+        CapacityProvider: !Ref DefaultCapacityProviderName
+        Weight: !Ref DefaultCapacityProviderWeight
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  Cluster:
+    Description: "The cluster which was created."
+    Value: !Ref Cluster
+    Export:
+      Name: !Sub "${AWS::StackName}-Cluster"
+  ClusterArn:
+    Description: "The ARN of the cluster which was created."
+    Value: !GetAtt Cluster.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-ClusterArn"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+      - ClusterName
+      - ContainerInsights
+      - CapacityProviders
+    - Label:
+        default: "Default Capacity Provider Configuration"
+      Parameters:
+      - DefaultCapacityProviderBase
+      - DefaultCapacityProviderName
+      - DefaultCapacityProviderWeight
+    - Label:
+        default: "Tags"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      ClusterName:
+        default: "Cluster Name:"
+      ContainerInsights:
+        default: "Container Insights:"
+      CapacityProviders:
+        default: "Capacity Providers:"
+      DefaultCapacityProviderBase:
+        default: "Base:"
+      DefaultCapacityProviderName:
+        default: "Name:"
+      DefaultCapacityProviderWeight:
+        default: "Weight:"
+      TagEnvironment:
+        default: "Environment:"

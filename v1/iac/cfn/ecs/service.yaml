@@ -1,0 +1,1051 @@
+AWSTemplateFormatVersion: "2010-09-09"
+# NOTE: This template shouldn't spun up directly, it should always be called by the codepipeline template.
+Description: "Create a new Fargate service. - (v1.1.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  ClusterName:
+    Type: "String"
+    Description: "What ECS cluster should this service be a part of?"
+  # Task/Service Configuration
+  CapacityProviderBase:
+    Type: "Number"
+    Description: "What is the capacity provider base for this service?"
+    Default: 0
+  CapacityProviderName:
+    Type: "String"
+    Description: "What is the capacity provider name for this service?"
+    AllowedValues:
+    - "FARGATE"
+    - "FARGATE_SPOT"
+    Default: "FARGATE_SPOT"
+  CapacityProviderWeight:
+    Type: "Number"
+    Description: "What is the capacity provider weight for this service?"
+    Default: 12 #Setting 12 as the default since it divides more evenly than 10
+  ServiceTaskDefinition:
+    Type: "String"
+    Description: "What service task definition version should be used?"
+  PlatformVersion:
+    Type: "String"
+    Description: "The Fargate platform version."
+    AllowedValues:
+    - "LATEST"
+    - "1.4.0"
+    - "1.3.0"
+    Default: "LATEST"
+  ServiceBaseName:
+    Type: "String"
+    Description: "What is the name for this service (should generally line up with container image)?"
+  DesiredCount:
+    Type: "Number"
+    Description: "How many instances should this service be started with?"
+  ContainerPort:
+    Type: "Number"
+    Description: "What port should the container run on?"
+    Default: 8080
+  HealthCheckPath:
+    Type: "String"
+    Description: "What is the path of the health check?"
+    Default: "/hc/"
+  HealthCheckGracePeriod:
+    Type: "Number"
+    Description: "The number of seconds before the health check starts."
+    Default: 1
+  HealthCheckProtocol:
+    Type: "String"
+    Description: "What protocol should be used for the health check?"
+    Default: "HTTP"
+  HealthCheckIntervalSeconds:
+    Type: "Number"
+    Description: "What is the interval (in seconds) between health checks?"
+    Default: 10
+  HealthCheckTimeoutSeconds:
+    Type: "Number"
+    Description: "What is the health check timeout in seconds."
+    Default: 5
+  HealthyThresholdCount:
+    Type: "Number"
+    Description: "How many times in a row should a health check fail before action is taken?"
+    Default: 2
+  ServiceAssignPublicIp:
+    Type: "String"
+    Description: "Assign a public IP address to the service."
+    AllowedValues:
+    - "ENABLED"
+    - "DISABLED"
+    Default: "DISABLED"
+  PropagateTags:
+    Type: "String"
+    Description: "Should tags be propagated from the task definition or the service?"
+    AllowedValues:
+    - "SERVICE"
+    - "TASK_DEFINITION"
+    Default: "TASK_DEFINITION"
+  # Networking
+  CreateLoadBalancer:
+    Type: "String"
+    Description: "Should a load balancer be created for this service?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  PublicLoadBalancer:
+    Type: "String"
+    Description: "Is this a public load balancer?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  PublicLoadBalancerVpnRestriction:
+    Type: "String"
+    Description: "If this is a public load balancer, should we restrict access to specific CIDR blocks/VPN?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  SiteShieldRestriction:
+    Type: "String"
+    Description: "Should this service be restricted to the Akamai Site Shield CIDR blocks?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "No"
+  SiteShieldSecurityGroupId:
+    Type: "String"
+    Description: "What is the ID of the Akamai Site Shield security group?"
+    Default: ""
+  #TODO: The WAF logic needs to be refined, it doesn't work correctly if the WAF isn't set up in the account.  So disabling for now.
+  # EnableWAF:
+  #   Type: "String"
+  #   Description: "Should this service be associated to a WAF?"
+  #   AllowedValues:
+  #   - "Yes"
+  #   - "No"
+  #   Default: "Yes"    
+  # WebACLArn:
+  #   Type: "AWS::SSM::Parameter::Value<String>"
+  #   Description: "What is the ARN of the WAF ACL the load balancer should be registered to?"
+  #   Default: "/account/basicwebacl"
+  LoadBalancerScheme:
+    Type: "String"
+    Description: "Should this template be internal only or Internet-facing?"
+    AllowedValues:
+    - "internal"
+    - "internet-facing"
+    Default: "internet-facing"
+  LoadBalancerPort:
+    Type: "Number"
+    Description: "What port should the load balancer be receiving traffic on?"
+    Default: 80
+  EnableAliasDualStack:
+    Type: "String"
+    Description: "Should DNS Dual Stack (IPv4/IPv6) be enabled for this service?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "No"
+  # SSL
+  LoadBalancerSecurePort:
+    Type: "Number"
+    Description: "What port should the load balancer be receiving secure traffic on?"
+    Default: 443
+  LoadBalancerSslPolicy:
+    Type: "String"
+    Description: ""
+    #Policy Details are here: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies
+    AllowedValues:
+    - "ELBSecurityPolicy-2016-08"
+    - "ELBSecurityPolicy-TLS-1-0-2015-04"
+    - "ELBSecurityPolicy-TLS-1-1-2017-01"
+    - "ELBSecurityPolicy-TLS-1-2-2017-01"
+    - "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
+    - "ELBSecurityPolicy-FS-2018-06"
+    - "ELBSecurityPolicy-FS-1-1-2019-08"
+    - "ELBSecurityPolicy-FS-1-2-2019-08"
+    - "ELBSecurityPolicy-FS-1-2-Res-2019-08"
+    Default: "ELBSecurityPolicy-FS-1-2-Res-2019-08"
+  LoadBalancerDeregistrationDelay:
+    Type: "Number"
+    Description: "The number of seconds the load balancer will wait to to remove a task (after requests have stopped being sent to the task)."
+    Default: 10
+  # Regional DNS
+  EnableEnvironmentDnsPattern:
+    Type: "String"
+    Description: "Should the DNS pattern which uses environment-level subdomains be enabled?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  Subdomain:
+    Type: "String"
+    Description: "The subdomain name we want added for this service. Must be a subdomain of the hosted zone."
+    Default: ""
+  HostedZoneDomain:
+    Type: "String"
+    Description: "What is the Hosted Zone domain for this DNS entry. (e.g. nonprod.example.com)"
+    Default: ""
+  # DNS Healthcheck
+  EnableDnsHealthCheck:
+    Type: "String"
+    Description: "Should the DNS healthcheck be enabled?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "No"
+  MeasureLatency:
+    Type: "String"
+    Description: "Measure the latency between health checkers in multiple AWS regions and your endpoint and display CloudWatch latency graphs?"
+    AllowedValues:
+    - "true"
+    - "false"
+    Default: "true"
+  # Cross-Region DNS
+  Weight:
+    Type: "Number"
+    Description: "The weight given to the cross-region record set. For simple weighting, could add up to 10 or 100."
+    Default: 6
+  # CDN DNS
+  CustomCdnDomain:
+    Type: "String"
+    Description: "A custom CDN domain name."
+    Default: ""
+  AlternateCustomCdnDomain:
+    Type: "String"
+    Description: "An additional custom CDN domain name."
+    Default: ""
+  # CDN Origin Header
+  #NOTE: The "OriginHeaderName" should never have a default value, it should always be passed in from a secret or manually set.
+  OriginHeaderName:
+    Type: "String"
+    Description: "The name of the header that the CDN should pass to the origin for verification (never set a default value)."
+    NoEcho: true
+  #NOTE: The "OriginHeaderValue" should never have a default value, it should always be passed in from a secret or manually set.
+  OriginHeaderValue:
+    Type: "String"
+    Description: "The value of the header that the CDN should pass to the origin for verification (never set a default value)."
+    NoEcho: true
+  # VPN Configuration
+  UseGlobalAllowedCidrBlockList:
+    Type: "String"
+    Description: "Should the global allowed CIDR Block list be used?  If \"No\", then the \"VpnCidrBlocks\" parameter will be used."
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  GlobalAllowedCidrBlockList:
+    Type: "AWS::SSM::Parameter::Value<List<String>>"
+    Description: "Get the list of CIDR blocks from the base infrastructure SSM parameter.  NOTE: Getting it this way because it is the only way to get a dynamic list from an SSM parameter."
+    Default: "/account/main/cidr-block/allowed/list"
+  VpnCidrBlocks:
+    Type: "CommaDelimitedList"
+    Description: "What are the current VPN CIDR Blocks?"
+    Default: "198.51.100.0/24,203.0.113.0/24"
+  # Auto-scaling
+  EnableAutoscaling:
+    Type: "String"
+    Description: "Should this service have auto-scaling enabled?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  Period:
+    Type: "Number"
+    Description: "The time over which the specified statistic is applied. You must specify a time in seconds that is also a multiple of 60."
+    Default: 60
+  EvaluationPeriods:
+    Type: "Number"
+    Description: "The number of periods that should be evaluated before an alarm is triggered."
+    Default: 2
+  MaxCapacity:
+    Type: "Number"
+    Description: "The maximum number of Docker instances to scale out (per region) via autoscaling."
+    Default: 4
+  MinCapacity:
+    Type: "Number"
+    Description: "The minimum number of Docker instances to scale in (per region) via autoscaling."
+    Default: 2
+  Cooldown:
+    Type: "Number"
+    Description: "The number of seconds for cooldown between scaling activities."
+    Default: 60
+  ScaleOutAdjustmentLow:
+    Type: "Number"
+    Description: "The number of Docker instances to scale out by if in the lower scaling range."
+    Default: 2
+  ScaleOutAdjustmentHigh:
+    Type: "Number"
+    Description: "The number of Docker instances to scale out by if in the higher scaling range."
+    Default: 4
+  ScaleInAdjustmentLow:
+    Type: "Number"
+    Description: "The number of Docker instances to scale in by if in the lower scaling range."
+    Default: -2
+  ScaleInAdjustmentHigh:
+    Type: "Number"
+    Description: "The number of Docker instances to scale in by if in the higher scaling range."
+    Default: -4
+  UpperCpuThreshold:
+    Type: "Number"
+    Description: "What is the upper used CPU threshold before we scale up?"
+    Default: 45
+  UpperMemoryThreshold:
+    Type: "Number"
+    Description: "What is the upper used memory threshold before we scale up?"
+    Default: 79
+  LowerCpuThreshold:
+    Type: "Number"
+    Description: "What is the lower used CPU threshold before we scale down?"
+    Default: 0.3
+  LowerMemoryThreshold:
+    Type: "Number"
+    Description: "What is the lower reserved memory threshold before we scale up?"
+    Default: 1
+  # Tags
+  TagEnvironment:
+    Type: "String"
+    Description: "What is the environment tag?"
+Conditions:
+  AlternateCustomCdnDomain: !Not [ !Equals [ !Ref AlternateCustomCdnDomain, "" ] ]
+  CustomCdnDomain: !Not [ !Equals [ !Ref CustomCdnDomain, "" ] ]
+  CreateDnsHealthCheck: !And
+  - !Condition EnableDnsHealthCheck
+  - !Condition PublicLoadBalancer
+  CreateIpv6Record: !And
+  - !Condition EnableAliasDualStack
+  - !Condition CreateLoadBalancer
+  CreateLoadBalancer: !Equals [ !Ref CreateLoadBalancer, "Yes" ]
+  PinnedPlatformVersion: !Not [ !Equals [ !Ref PlatformVersion, "LATEST" ] ]
+  EnableAliasDualStack: !Equals [ !Ref EnableAliasDualStack, "Yes" ]
+  EnableAutoscaling: !Equals [ !Ref EnableAutoscaling, "Yes" ]
+  EnableDnsHealthCheck: !Equals [ !Ref EnableDnsHealthCheck, "Yes" ]
+  EnableEnvironmentDnsPattern: !Equals [ !Ref EnableEnvironmentDnsPattern, "Yes" ]
+  NoLoadBalancer: !Equals [ !Ref CreateLoadBalancer, "No" ]
+  Production: !Equals [ !Ref TagEnvironment, "prod" ]
+  PublicLoadBalancer: !Equals [ !Ref PublicLoadBalancer, "Yes" ]
+  PublicLoadBalancerVpnRestriction: !Equals [ !Ref PublicLoadBalancerVpnRestriction, "Yes" ]
+  SiteShieldRestriction: !Equals [ !Ref SiteShieldRestriction, "Yes" ]
+  UseGlobalAllowedCidrBlockList: !Equals [ !Ref UseGlobalAllowedCidrBlockList, "Yes" ]
+  # EnableWaf: !And
+  #   - !Equals [ !Ref EnableWAF, "Yes" ]
+  #   - !Condition CreateLoadBalancer
+Resources:
+  ServiceLoadBalancer:
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Condition: CreateLoadBalancer
+    Properties:
+      IpAddressType: !If [ EnableAliasDualStack, "dualstack", "ipv4" ]
+      Subnets:
+      - !If [ PublicLoadBalancer, !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/public/zone/one}}", !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/one}}" ]
+      - !If [ PublicLoadBalancer, !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/public/zone/two}}", !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/two}}" ]
+      - !If [ PublicLoadBalancer, !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/public/zone/three}}", !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/three}}" ]
+      Scheme: !Ref LoadBalancerScheme
+      SecurityGroups:
+      - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/security-group/load-balancer/application/public/id}}"
+      - !If [ SiteShieldRestriction, !Ref SiteShieldSecurityGroupId, !Ref "AWS::NoValue" ]
+      LoadBalancerAttributes:
+      - Key: "access_logs.s3.enabled"
+        Value: "true"
+      - Key: "access_logs.s3.bucket"
+        Value: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/logging/load-balancer/name}}"
+      - Key: "access_logs.s3.prefix"
+        Value: !Sub "ecs/service/${ServiceBaseName}/${TagEnvironment}"
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  ServiceLoadBalancerListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Condition: CreateLoadBalancer
+    DependsOn: ServiceLoadBalancer
+    Properties:
+      DefaultActions:
+      - Type: "redirect"
+        RedirectConfig:
+          Host: "#{host}"
+          Path: "/#{path}"
+          Port: !Ref LoadBalancerSecurePort
+          Protocol: "HTTPS"
+          Query: "#{query}"
+          StatusCode: "HTTP_301"
+      LoadBalancerArn: !Ref ServiceLoadBalancer
+      Port: !Ref LoadBalancerPort
+      Protocol: "HTTP"
+  ServiceLoadBalancerSecureListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Condition: CreateLoadBalancer
+    DependsOn: ServiceLoadBalancer
+    Properties:
+      DefaultActions:
+      - Type: "fixed-response"
+        FixedResponseConfig:
+          ContentType: "text/plain"
+          MessageBody: "401 - Unauthorized"
+          StatusCode: "401"
+      LoadBalancerArn: !Ref ServiceLoadBalancer
+      Port: !Ref LoadBalancerSecurePort
+      Protocol: "HTTPS"
+      SslPolicy: !Ref LoadBalancerSslPolicy
+      Certificates:
+      - CertificateArn: !Sub "{{resolve:ssm:/acm/${InfrastructureName}/certificate/arn}}"
+  ServiceTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Condition: CreateLoadBalancer
+    DependsOn:
+    - ServiceLoadBalancer
+    - ServiceLoadBalancerListener
+    - ServiceLoadBalancerSecureListener
+    Properties:
+      VpcId: !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/id}}"
+      TargetType: "ip"
+      Port: !Ref LoadBalancerPort
+      Protocol: "HTTP"
+      Matcher:
+        HttpCode: "200-299"
+      HealthCheckPath: !Ref HealthCheckPath
+      HealthCheckProtocol: !Ref HealthCheckProtocol
+      HealthCheckIntervalSeconds: !Ref HealthCheckIntervalSeconds
+      HealthCheckTimeoutSeconds: !Ref HealthCheckTimeoutSeconds
+      HealthyThresholdCount: !Ref HealthyThresholdCount
+      TargetGroupAttributes:
+      - Key: "deregistration_delay.timeout_seconds"
+        Value: !Ref LoadBalancerDeregistrationDelay
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  ServiceSecureListenerRuleOne:
+    Type: "AWS::ElasticLoadBalancingV2::ListenerRule"
+    Condition: CreateLoadBalancer
+    DependsOn: ServiceTargetGroup
+    Properties:
+      ListenerArn: !Ref ServiceLoadBalancerSecureListener
+      Priority: 1
+      Conditions:
+      - Field: "host-header"
+        HostHeaderConfig:
+          Values:
+          - !Sub "${Subdomain}-${TagEnvironment}-cdn.{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/domain-name}}"
+          - !If [ CustomCdnDomain, !Ref CustomCdnDomain, !Ref "AWS::NoValue" ]
+          - !If [ AlternateCustomCdnDomain, !Ref AlternateCustomCdnDomain, !Ref "AWS::NoValue" ]
+      - Field: "http-header"
+        HttpHeaderConfig:
+          HttpHeaderName: !Ref OriginHeaderName
+          Values:
+          - !Ref OriginHeaderValue
+      Actions:
+      - Type: "forward"
+        TargetGroupArn: !Ref ServiceTargetGroup
+  # Allow traffic from NAT EIPs.
+  ServiceSecureListenerRuleTwo:
+    Type: "AWS::ElasticLoadBalancingV2::ListenerRule"
+    Condition: CreateLoadBalancer
+    DependsOn: ServiceTargetGroup
+    Properties:
+      ListenerArn: !Ref ServiceLoadBalancerSecureListener
+      Priority: 2
+      Conditions:
+      - Field: "source-ip"
+        SourceIpConfig:
+          Values:
+          - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/availability-zone/nat/eip/cidr-block/one}}"
+          - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/availability-zone/nat/eip/cidr-block/two}}"
+          - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/availability-zone/nat/eip/cidr-block/three}}"
+      Actions:
+      - Type: "forward"
+        TargetGroupArn: !Ref ServiceTargetGroup
+  # Allow traffic from additional CIDR blocks (such as VPNs).
+  ServiceSecureListenerRuleThree:
+    Type: "AWS::ElasticLoadBalancingV2::ListenerRule"
+    Condition: CreateLoadBalancer
+    DependsOn: ServiceTargetGroup
+    Properties:
+      ListenerArn: !Ref ServiceLoadBalancerSecureListener
+      Priority: 3
+      Conditions:
+      - Field: "source-ip"
+        SourceIpConfig:
+          Values: !If [ PublicLoadBalancerVpnRestriction, !If [ UseGlobalAllowedCidrBlockList, !Ref GlobalAllowedCidrBlockList, !Ref VpnCidrBlocks ], [ "0.0.0.0/0","::/0" ] ]
+      Actions:
+      - Type: "forward"
+        TargetGroupArn: !Ref ServiceTargetGroup
+  # WafAssociation:
+  #   Type: "AWS::WAFv2::WebACLAssociation"
+  #   Condition: EnableWaf
+  #   Properties:
+  #     WebACLArn: !Ref WebACLArn
+  #     ResourceArn: !Ref ServiceLoadBalancer
+  Service:
+    Type: "AWS::ECS::Service"
+    Condition: CreateLoadBalancer
+    DependsOn:
+    - ServiceLoadBalancer
+    - ServiceTargetGroup
+    - ServiceLoadBalancerListener
+    - ServiceLoadBalancerSecureListener
+    - ServiceSecureListenerRuleOne
+    - ServiceSecureListenerRuleTwo
+    Properties:
+      Cluster: !Ref ClusterName
+      ServiceName: !If [ PinnedPlatformVersion, !Sub "${ServiceBaseName}-pinned-${TagEnvironment}", !Sub "${ServiceBaseName}-${TagEnvironment}" ] 
+      CapacityProviderStrategy:
+      - Base: !Ref CapacityProviderBase
+        CapacityProvider: !Ref CapacityProviderName
+        Weight: !Ref CapacityProviderWeight
+      TaskDefinition: !Ref ServiceTaskDefinition
+      DesiredCount: !Ref DesiredCount
+      PlatformVersion: !Ref PlatformVersion
+      PropagateTags: !Ref PropagateTags
+      HealthCheckGracePeriodSeconds: !Ref HealthCheckGracePeriod
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: !Ref ServiceAssignPublicIp
+          SecurityGroups:
+          - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/security-group/ecs/fargate/service/id}}"
+          Subnets:
+          - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/one}}"
+          - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/two}}"
+          - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/three}}"
+      LoadBalancers:
+      - ContainerPort: !Ref ContainerPort
+        ContainerName: !Sub "${ServiceBaseName}-${TagEnvironment}"
+        TargetGroupArn: !Ref ServiceTargetGroup
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  UtilityService:
+    Type: "AWS::ECS::Service"
+    Condition: NoLoadBalancer
+    Properties:
+      Cluster: !Ref ClusterName
+      ServiceName: !If [ PinnedPlatformVersion, !Sub "${ServiceBaseName}-pinned-${TagEnvironment}", !Sub "${ServiceBaseName}-${TagEnvironment}" ] 
+      CapacityProviderStrategy:
+      - Base: !Ref CapacityProviderBase
+        CapacityProvider: !Ref CapacityProviderName
+        Weight: !Ref CapacityProviderWeight
+      TaskDefinition: !Ref ServiceTaskDefinition
+      DesiredCount: !Ref DesiredCount
+      PlatformVersion: !Ref PlatformVersion
+      PropagateTags: !Ref PropagateTags
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: !Ref ServiceAssignPublicIp
+          SecurityGroups:
+          - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/security-group/ecs/fargate/service/id}}"
+          Subnets:
+          - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/one}}"
+          - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/two}}"
+          - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/three}}"
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  AutoScalingTarget:
+    Type: "AWS::ApplicationAutoScaling::ScalableTarget"
+    Condition: EnableAutoscaling
+    DependsOn: Service
+    Properties:
+      ResourceId: !Sub
+      - "service/${ClusterName}/${TempServiceName}"
+      - TempServiceName: !GetAtt Service.Name
+      MaxCapacity: !Ref MaxCapacity
+      MinCapacity: !Ref MinCapacity
+      RoleARN: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/ecs/service/auto-scaling/arn}}"
+      ScalableDimension: "ecs:service:DesiredCount"
+      ServiceNamespace: "ecs"
+  ScaleOutPolicy:
+    Type: "AWS::ApplicationAutoScaling::ScalingPolicy"
+    Condition: EnableAutoscaling
+    Properties:
+      PolicyName: !Sub "${ClusterName}-${ServiceBaseName}-${TagEnvironment}-Scale-Out-Policy"
+      PolicyType: "StepScaling"
+      ScalingTargetId: !Ref AutoScalingTarget
+      StepScalingPolicyConfiguration:
+        AdjustmentType: "ChangeInCapacity"
+        Cooldown: !Ref Cooldown
+        MetricAggregationType: "Average"
+        StepAdjustments:
+        - MetricIntervalLowerBound: 0
+          MetricIntervalUpperBound: 50
+          ScalingAdjustment: !Ref ScaleOutAdjustmentLow
+        - MetricIntervalLowerBound: 50
+          ScalingAdjustment: !Ref ScaleOutAdjustmentHigh
+  ScaleInPolicy:
+    Type: "AWS::ApplicationAutoScaling::ScalingPolicy"
+    Condition: EnableAutoscaling
+    Properties:
+      PolicyName: !Sub "${ClusterName}-${ServiceBaseName}-${TagEnvironment}-Scale-In-Policy"
+      PolicyType: "StepScaling"
+      ScalingTargetId: !Ref AutoScalingTarget
+      StepScalingPolicyConfiguration:
+        AdjustmentType: "ChangeInCapacity"
+        Cooldown: !Ref Cooldown
+        MetricAggregationType: "Average"
+        StepAdjustments:
+        - MetricIntervalUpperBound: 0
+          MetricIntervalLowerBound: -50
+          ScalingAdjustment: !Ref ScaleInAdjustmentLow
+        - MetricIntervalUpperBound: -50
+          ScalingAdjustment: !Ref ScaleInAdjustmentHigh
+  CpuUtilizationAlarmHigh:
+    Type: "AWS::CloudWatch::Alarm"
+    Condition: EnableAutoscaling
+    Properties:
+      AlarmName: !Sub "${ClusterName}-${ServiceBaseName}-${TagEnvironment}-cpu-utilization-high"
+      AlarmDescription: "Scale up the service instances if we start running short on used service CPU units."
+      AlarmActions:
+      - Ref: ScaleOutPolicy
+      # OKActions:
+      # - Ref:
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      Dimensions:
+      - Name: "ClusterName"
+        Value: !Ref ClusterName
+      - Name: "ServiceName"
+        Value: !GetAtt Service.Name
+      EvaluationPeriods: !Ref EvaluationPeriods
+      MetricName: "CPUUtilization"
+      Namespace: "AWS/ECS"
+      Period: !Ref Period
+      Statistic: "Average"
+      Threshold: !Ref UpperCpuThreshold
+  MemoryUtilizationAlarmHigh:
+    Type: "AWS::CloudWatch::Alarm"
+    Condition: EnableAutoscaling
+    Properties:
+      AlarmName: !Sub "${ClusterName}-${ServiceBaseName}-${TagEnvironment}-memory-utilization-high"
+      AlarmDescription: "Scale up the service instances if we start running short on used service memory."
+      AlarmActions:
+      - Ref: ScaleOutPolicy
+      # OKActions:
+      # - Ref:
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      Dimensions:
+      - Name: "ClusterName"
+        Value: !Ref ClusterName
+      - Name: "ServiceName"
+        Value: !GetAtt Service.Name
+      EvaluationPeriods: !Ref EvaluationPeriods
+      MetricName: "MemoryUtilization"
+      Namespace: "AWS/ECS"
+      Period: !Ref Period
+      Statistic: "Average"
+      Threshold: !Ref UpperMemoryThreshold
+  CpuUtilizationAlarmLow:
+    Type: "AWS::CloudWatch::Alarm"
+    Condition: EnableAutoscaling
+    Properties:
+      AlarmName: !Sub "${ClusterName}-${ServiceBaseName}-${TagEnvironment}-cpu-utilization-low"
+      AlarmDescription: "Scale down the service instances if we have too much excess service CPU units."
+      AlarmActions:
+      - Ref: ScaleInPolicy
+      # OKActions:
+      # - Ref:
+      ComparisonOperator: "LessThanThreshold"
+      Dimensions:
+      - Name: "ClusterName"
+        Value: !Ref ClusterName
+      - Name: "ServiceName"
+        Value: !GetAtt Service.Name
+      EvaluationPeriods: !Ref EvaluationPeriods
+      MetricName: "CPUUtilization"
+      Namespace: "AWS/ECS"
+      Period: !Ref Period
+      Statistic: "Average"
+      Threshold: !Ref LowerCpuThreshold
+  MemoryUtilizationAlarmLow:
+    Type: "AWS::CloudWatch::Alarm"
+    Condition: EnableAutoscaling
+    Properties:
+      AlarmName: !Sub "${ClusterName}-${ServiceBaseName}-${TagEnvironment}-memory-utilization-low"
+      AlarmDescription: "Scale down the service instances if we have too much excess service memory."
+      AlarmActions:
+      - Ref: ScaleInPolicy
+      # OKActions:
+      # - Ref:
+      ComparisonOperator: "LessThanThreshold"
+      Dimensions:
+      - Name: "ClusterName"
+        Value: !Ref ClusterName
+      - Name: "ServiceName"
+        Value: !GetAtt Service.Name
+      EvaluationPeriods: !Ref EvaluationPeriods
+      MetricName: "MemoryUtilization"
+      Namespace: "AWS/ECS"
+      Period: !Ref Period
+      Statistic: "Average"
+      Threshold: !Ref LowerMemoryThreshold
+  DnsEntry:
+    Type: "AWS::Route53::RecordSet"
+    Condition: CreateLoadBalancer
+    DependsOn: Service
+    Properties:
+      HostedZoneId: !Sub "{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/id}}"
+      Comment: !Sub "DNS CNAME entry for ${Service}"
+      Name: !If
+        - Production
+        - !Sub "${Subdomain}-${AWS::Region}.${HostedZoneDomain}"
+        - !If [ EnableEnvironmentDnsPattern, !Sub "${Subdomain}-${AWS::Region}.${TagEnvironment}.${HostedZoneDomain}", !Sub "${Subdomain}-${TagEnvironment}-${AWS::Region}.${HostedZoneDomain}" ]
+      Type: "A"
+      AliasTarget:
+        HostedZoneId: !GetAtt ServiceLoadBalancer.CanonicalHostedZoneID
+        DNSName: !If [ EnableAliasDualStack, !Sub "dualstack.${ServiceLoadBalancer.DNSName}", !GetAtt ServiceLoadBalancer.DNSName ]
+        EvaluateTargetHealth: false
+  DnsEntryIpv6:
+    Type: "AWS::Route53::RecordSet"
+    Condition: CreateIpv6Record
+    DependsOn: Service
+    Properties:
+      HostedZoneId: !Sub "{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/id}}"
+      Comment: !Sub "DNS CNAME entry for ${Service}"
+      Name: !If
+        - Production
+        - !Sub "${Subdomain}-${AWS::Region}.${HostedZoneDomain}"
+        - !If [ EnableEnvironmentDnsPattern, !Sub "${Subdomain}-${AWS::Region}.${TagEnvironment}.${HostedZoneDomain}", !Sub "${Subdomain}-${TagEnvironment}-${AWS::Region}.${HostedZoneDomain}" ]
+      Type: "AAAA"
+      AliasTarget:
+        HostedZoneId: !GetAtt ServiceLoadBalancer.CanonicalHostedZoneID
+        DNSName: !Sub "dualstack.${ServiceLoadBalancer.DNSName}"
+        EvaluateTargetHealth: false
+  DnsRecordHealthCheck:
+    Type: "AWS::Route53::HealthCheck"
+    Condition: CreateDnsHealthCheck
+    Properties:
+      HealthCheckConfig:
+        Type: "HTTP"
+        Port: !Ref LoadBalancerPort
+        ResourcePath: !Ref HealthCheckPath
+        FullyQualifiedDomainName: !If
+          - Production
+          - !Sub "${Subdomain}-${AWS::Region}.${HostedZoneDomain}"
+          - !If [ EnableEnvironmentDnsPattern, !Sub "${Subdomain}-${AWS::Region}.${TagEnvironment}.${HostedZoneDomain}", !Sub "${Subdomain}-${TagEnvironment}-${AWS::Region}.${HostedZoneDomain}" ]
+        RequestInterval: !Ref HealthCheckIntervalSeconds
+        FailureThreshold: !Ref HealthyThresholdCount
+        MeasureLatency: !Ref MeasureLatency
+      HealthCheckTags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  CrossRegionDnsEntry:
+    Type: "AWS::Route53::RecordSet"
+    Condition: CreateLoadBalancer
+    DependsOn: Service
+    Properties:
+      HostedZoneId: !Sub "{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/id}}"
+      Comment: !Sub "DNS Cross-Region Alias entry for ${Service}"
+      Name: !If
+        - Production
+        - !Sub "${Subdomain}.${HostedZoneDomain}"
+        - !If [ EnableEnvironmentDnsPattern, !Sub "${Subdomain}.${TagEnvironment}.${HostedZoneDomain}", !Sub "${Subdomain}-${TagEnvironment}.${HostedZoneDomain}" ]
+      Type: "A"
+      SetIdentifier: !Sub "${Subdomain}-${TagEnvironment}-${AWS::Region}"
+      Weight: !Ref Weight
+      HealthCheckId: !If [ CreateDnsHealthCheck, !Ref DnsRecordHealthCheck, !Ref "AWS::NoValue" ]
+      AliasTarget:
+        HostedZoneId: !GetAtt ServiceLoadBalancer.CanonicalHostedZoneID
+        DNSName: !If [ EnableAliasDualStack, !Sub "dualstack.${ServiceLoadBalancer.DNSName}", !GetAtt ServiceLoadBalancer.DNSName ]
+  CrossRegionDnsEntryIpv6:
+    Type: "AWS::Route53::RecordSet"
+    Condition: CreateIpv6Record
+    DependsOn: Service
+    Properties:
+      HostedZoneId: !Sub "{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/id}}"
+      Comment: !Sub "DNS Cross-Region Alias entry for ${Service}"
+      Name: !If
+        - Production
+        - !Sub "${Subdomain}.${HostedZoneDomain}"
+        - !If [ EnableEnvironmentDnsPattern, !Sub "${Subdomain}.${TagEnvironment}.${HostedZoneDomain}", !Sub "${Subdomain}-${TagEnvironment}.${HostedZoneDomain}" ]
+      Type: "AAAA"
+      SetIdentifier: !Sub "${Subdomain}-${TagEnvironment}-${AWS::Region}"
+      Weight: !Ref Weight
+      HealthCheckId: !If [ CreateDnsHealthCheck, !Ref DnsRecordHealthCheck, !Ref "AWS::NoValue" ]
+      AliasTarget:
+        HostedZoneId: !GetAtt ServiceLoadBalancer.CanonicalHostedZoneID
+        DNSName: !Sub "dualstack.${ServiceLoadBalancer.DNSName}"
+Outputs:
+  ServiceName:
+    Description: "The service name."
+    Value: !If [ CreateLoadBalancer, !GetAtt Service.Name, !GetAtt UtilityService.Name ]
+    Export:
+      Name: !Sub "${AWS::StackName}-ServiceName"
+  ServiceArn:
+    Description: "The service ARN."
+    Value: !If [ CreateLoadBalancer, !Ref Service, !Ref UtilityService ]
+    Export:
+      Name: !Sub "${AWS::StackName}-ServiceArn"
+  ServiceAutoScalingTarget:
+    Condition: EnableAutoscaling
+    Description: "The service auto-scaling target."
+    Value: !Ref AutoScalingTarget
+    Export:
+      Name: !Sub "${AWS::StackName}-ServiceAutoScalingTarget"
+  ServiceDomain:
+    Condition: CreateLoadBalancer
+    Description: "The domain endpoint for this service instance."
+    Value: !GetAtt ServiceLoadBalancer.DNSName
+    Export:
+      Name: !Sub "${AWS::StackName}-ServiceDomain"
+  ClusterName:
+    Description: "The name of the cluster this service is running on."
+    Value: !Ref ClusterName
+    Export:
+      Name: !Sub "${AWS::StackName}-ClusterName"
+  RegionDomain:
+    Condition: CreateLoadBalancer
+    Description: "The regional domain which was assigned to this service."
+    Value: !Ref DnsEntry
+    Export:
+      Name: !Sub "${AWS::StackName}-RegionDomain"
+  CrossRegionDomain:
+    Condition: CreateLoadBalancer
+    Description: "The cross-region domain which was assigned to this service."
+    Value: !Ref CrossRegionDnsEntry
+    Export:
+      Name: !Sub "${AWS::StackName}-CrossRegionDomain"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default:"General Configuration"
+      Parameters:
+      - InfrastructureName
+      - ClusterName
+    - Label:
+        default: "Task/Service Configuration"
+      Parameters:
+      - CapacityProviderBase
+      - CapacityProviderName
+      - CapacityProviderWeight
+      - ServiceBaseName
+      - DesiredCount
+      - ContainerPort
+      - HealthCheckPath
+      - HealthCheckGracePeriod
+      - ServiceAssignPublicIp
+      - PropagateTags
+    - Label:
+        default: "Networking Configuration"
+      Parameters:
+      - CreateLoadBalancer
+      - PublicLoadBalancer
+      - PublicLoadBalancerVpnRestriction
+      - SiteShieldRestriction
+      - SiteShieldSecurityGroupId
+      - LoadBalancerScheme
+      - LoadBalancerPort
+      - LoadBalancerSecurePort
+      - LoadBalancerSslPolicy
+      - LoadBalancerDeregistrationDelay
+      - EnableAliasDualStack
+    - Label:
+        default: "Regional DNS Configuration"
+      Parameters:
+      - EnableEnvironmentDnsPattern
+      - Subdomain
+      - HostedZoneDomain
+    - Label:
+        default: "DNS Healthcheck Configuration"
+      Parameters:
+      - EnableDnsHealthCheck
+      - MeasureLatency
+    - Label:
+        default: "Cross-Region DNS Configuration"
+      Parameters:
+      - Weight
+    - Label:
+        default: "CDN Configuration"
+      Parameters:
+      - CustomCdnDomain
+      - AlternateCustomCdnDomain
+      - OriginHeaderName
+      - OriginHeaderValue
+    - Label:
+        default: "Source IP Configuration"
+      Parameters:
+      - UseGlobalAllowedCidrBlockList
+      - GlobalAllowedCidrBlockList
+      - VpnCidrBlocks
+    - Label:
+        default: "Auto-Scaling Configuration"
+      Parameters:
+      - EnableAutoscaling
+      - Period
+      - EvaluationPeriods
+      - MaxCapacity
+      - MinCapacity
+      - Cooldown
+      - ScaleOutAdjustmentLow
+      - ScaleOutAdjustmentHigh
+      - ScaleInAdjustmentLow
+      - ScaleInAdjustmentHigh
+      - UpperCpuThreshold
+      - UpperMemoryThreshold
+      - LowerCpuThreshold
+      - LowerMemoryThreshold
+    - Label:
+        default: "Tags"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      # General Configuration
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      ClusterName:
+        default: "Cluster Name:"
+      # Task/Service Configuration
+      CapacityProviderBase:
+        default: "Capacity Provider Base:"
+      CapacityProviderName:
+        default: "Capacity Provider Name:"
+      CapacityProviderWeight:
+        default: "Capacity Provider Weight:"
+      ServiceBaseName:
+        default: "Service Base Name:"
+      DesiredCount:
+        default: "Instance Count:"
+      ContainerPort:
+        default: "Container Port:"
+      HealthCheckPath:
+        default: "Health Check Path:"
+      HealthCheckGracePeriod:
+        default: "Health Check Grace Period:"
+      ServiceAssignPublicIp:
+        default: "Assign Public IP:"
+      PropagateTags:
+        default: "Propagate Tags:"
+      # Networking Configuration
+      CreateLoadBalancer:
+        default: "Create Load Balancer:"
+      PublicLoadBalancer:
+        default: "Public Load Balancer:"
+      PublicLoadBalancerVpnRestriction:
+        default: "Public Load Balancer VPN Restriction:"
+      SiteShieldRestriction:
+        default: "Site Shield Restriction:"
+      SiteShieldSecurityGroupId:
+        default: "SiteS hield Security Group ID:"
+      LoadBalancerScheme:
+        default: "Service Load Balancer Scheme:"
+      LoadBalancerPort:
+        default: "Service Load Balancer Port:"
+      EnableAliasDualStack:
+        default: "Enable Alias Dual-Stack:"
+      # SSL Configuration
+      LoadBalancerSecurePort:
+        default: "Secure Port:"
+      LoadBalancerSslPolicy:
+        default: "Service Load Balancer Certificate Policy:"
+      LoadBalancerDeregistrationDelay:
+        default: "Deregistration Delay:"
+      # Regional DNS Configuration
+      EnableEnvironmentDnsPattern:
+        default: "Enable Environment DNS Pattern:"
+      Subdomain:
+        default: "Service Subdomain:"
+      HostedZoneDomain:
+        default: "Hosted Zone Domain:"
+      # DNS Healthcheck Configuration
+      EnableDnsHealthCheck:
+        default: "Enable DNS Health Check:"
+      MeasureLatency:
+        default: "Measure Latency:"
+      # Cross-Region DNS Configuration
+      Weight:
+        default: "Weight:"
+      # CDN DNS Entry
+      CustomCdnDomain:
+        default: "CDN Custom Domain Name:"
+      AlternateCustomCdnDomain:
+        default: "CDN Alternate Custom Domain Name:"
+      OriginHeaderName:
+        default: "CDN Origin Header Name:"
+      OriginHeaderValue:
+        default: "CDN Origin Header Value:"
+      # VPN Configuration
+      UseGlobalAllowedCidrBlockList:
+        default: "Use Global Allowed CIDR Block List:"
+      GlobalAllowedCidrBlockList:
+        default: "Global Allowed CIDR Block List:"
+      VpnCidrBlocks:
+        default: "VPN CIDR Blocks:"
+      # Auto-Scaling Configuration
+      EnableAutoscaling:
+        default: "Enable Auto-Scaling:"
+      Period:
+        default: "Period (in 60 second increments):"
+      EvaluationPeriods:
+        default: "Evaluation Periods:"
+      MaxCapacity:
+        default: "Maximum Docker Instances:"
+      MinCapacity:
+        default: "Minimum Docker Instances:"
+      Cooldown:
+        default: "Scaling Cooldown:"
+      ScaleOutAdjustmentLow:
+        default: "Scale Out Normal Instance Adjustment:"
+      ScaleOutAdjustmentHigh:
+        default: "Scale Out Maximum Instance Adjustment:"
+      ScaleInAdjustmentLow:
+        default: "Scale In Normal Instance Adjustment:"
+      ScaleInAdjustmentHigh:
+        default: "Scale In Maximum Instance Adjustment:"
+      UpperCpuThreshold:
+        default: "Upper CPU Threshold (%):"
+      UpperMemoryThreshold:
+        default: "Upper Memory Threshold (%):"
+      LowerCpuThreshold:
+        default: "Lower CPU Threshold (%):"
+      LowerMemoryThreshold:
+        default: "Lower Memory Threshold (%):"
+      # Tags
+      TagEnvironment:
+        default: "Environment:"

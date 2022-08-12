@@ -1,0 +1,19 @@
+version: 0.2
+
+env:
+  secrets-manager:
+    GITHUB_TOKEN: "$GITHUB_OAUTH_TOKEN_NAME"
+
+phases:
+  install:
+    commands:
+    # - "yum update -y"
+    # - "yum install -y jq"
+  pre_build:
+    commands:
+    - 'PRE_BUILD_SCRIPT="$CODEBUILD_SRC_DIR/$APP_BASE_FOLDER/build/aws/codebuild/promote/pre_build.sh"'
+    - 'chmod +x "$PRE_BUILD_SCRIPT" && "$PRE_BUILD_SCRIPT"'
+  build:
+    commands:
+    - 'BUILD_SCRIPT="$CODEBUILD_SRC_DIR/$APP_BASE_FOLDER/build/aws/codebuild/promote/build.sh"'
+    - 'chmod +x "$BUILD_SCRIPT" && "$BUILD_SCRIPT"'

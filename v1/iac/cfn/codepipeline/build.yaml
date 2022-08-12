@@ -1,0 +1,280 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create the CodePipeline needed to build this service - (v1.0.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  # CodePipeline Configuration
+  BaseProjectName:
+    Type: "String"
+    Description: "The base name of the CodePipeline project (e.g. foo-bar-baz)."
+  ProjectName:
+    Type: "String"
+    Description: "The specific name of the CodePipeline project."
+  BaseBucketFolder:
+    Type: "String"
+    Description: "The base S3 folder for this project."
+  BaseArtifactFolder:
+    Type: "String"
+    Description: "The base artifact folder (used mainly for service environment source files)."
+    Default: "base"
+  CodeBuildProject:
+    Type: "String"
+    Description: "The name for the CodeBuild project."
+  # CodePipeline Notification Configuration
+  EnableNotifications:
+    Type: "String"
+    Description: "Should an e-mail SNS topic and Slack notification hook be enabled?  Please note this will only work the the Slack notifications Lambda has already been created for this region."
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  SlackNotificationLambda:
+    Type: "String"
+    Description: "What is the name of the function used to send out Slack notifications?"
+    Default: "slack-notification-prod"
+  # Source Configuration
+  BuildSourceFile:
+    Type: "String"
+    Description: "The name of the ZIP file for the build source."
+    Default: "build.zip"
+  ServiceSourceFile:
+    Type: "String"
+    Description: "The name of the ZIP file for the service source."
+    Default: "service.zip"
+  ServiceEnvSourceFile:
+    Type: "String"
+    Description: "The name of the ZIP file for the service environment source."
+    Default: "service-env.zip"
+  TestSourceFile:
+    Type: "String"
+    Description: "The name of the ZIP file for the test source."
+    Default: "test.zip"
+  # ECR Configuration
+  EcrImageTag:
+    Type: "String"
+    Description: "The ECS repository image tag."
+    Default: "int"
+  RejectCodePipeline:
+    Type: "String"
+    Description: "The name of the CodePipeline for which we should reject the pending approval."
+    Default: "NONE"
+  # Tags
+  TagEnvironment:
+    Type: "String"
+    Description: "What is the environment tag?"
+    AllowedValues:
+    - "build"
+    Default: "build"
+Conditions:
+  EnableNotifications: !Equals [ !Ref EnableNotifications, "Yes" ]
+Resources:
+  CodePipelineEventsRule:
+    Type: "AWS::Events::Rule"
+    Condition: EnableNotifications
+    Properties:
+      Name: !Sub "codepipeline-${ProjectName}-${TagEnvironment}"
+      Description: !Sub 'Events rule for Slack notifications for the "${ProjectName}-${TagEnvironment}" CodePipeline.'
+      State: "ENABLED"
+      EventPattern:
+        source:
+        - "aws.codepipeline"
+        detail-type: # The following targets just the main CodePipeline states, you can also target individual stages (CodePipeline Stage Execution State Change) or actions (CodePipeline Action Execution State Change)
+        - "CodePipeline Pipeline Execution State Change"
+        # - "CodePipeline Stage Execution State Change"
+        # - "CodePipeline Action Execution State Change"
+        detail:
+          state: # These are the CodePipeline states: CANCELED, FAILED, RESUMED, STARTED, SUCCEEDED, and SUPERSEDED: https://docs.aws.amazon.com/codepipeline/latest/userguide/detect-state-changes-cloudwatch-events.html
+          - "CANCELED"
+          - "FAILED"
+          - "STARTED"
+          - "SUCCEEDED"
+          pipeline:
+          - !Sub "${ProjectName}-${TagEnvironment}"
+      Targets:
+      - Arn: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${SlackNotificationLambda}"
+        Id: !Sub "slack-lambda-${ProjectName}-${TagEnvironment}"
+  CodePipeline:
+    Type: "AWS::CodePipeline::Pipeline"
+    Properties:
+      RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${BaseProjectName}/build/arn}}"
+      Name: !Sub "${ProjectName}-${TagEnvironment}"
+      RestartExecutionOnUpdate: true
+      ArtifactStores:
+      - Region: "us-east-1"
+        ArtifactStore:
+          Type: "S3"
+          Location: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/codepipeline/base-name}}-us-east-1"
+      - Region: "us-east-2"
+        ArtifactStore:
+          Type: "S3"
+          Location: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/codepipeline/base-name}}-us-east-2"
+      - Region: "us-west-2"
+        ArtifactStore:
+          Type: "S3"
+          Location: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/codepipeline/base-name}}-us-west-2"
+      Stages:
+      - Name: "Source"
+        Actions:
+        - Name: "Build_Source"
+          ActionTypeId:
+            Category: "Source"
+            Owner: "AWS"
+            Provider: "S3"
+            Version: "1"
+          Configuration:
+            S3Bucket: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/artifact/name}}"
+            S3ObjectKey: !Sub "${BaseBucketFolder}/${BaseArtifactFolder}/${BuildSourceFile}"
+            PollForSourceChanges: "false"
+          OutputArtifacts:
+          - Name: "APP_SOURCE_FILES"
+          RunOrder: 1
+      - Name: "Build"
+        Actions:
+        - Name: "Run_Build"
+          ActionTypeId:
+            Category: "Build"
+            Owner: "AWS"
+            Provider: "CodeBuild"
+            Version: "1"
+          Configuration:
+            ProjectName: !Ref CodeBuildProject
+            PrimarySource: "APP_SOURCE_FILES"
+            EnvironmentVariables: !Sub |
+              [
+                {
+                  "name":"AWS_ECR_IMAGE_TAG",
+                  "value":"${EcrImageTag}",
+                  "type":"PLAINTEXT"
+                },
+                {
+                  "name":"PROJECT_NAME",
+                  "value":"${ProjectName}",
+                  "type":"PLAINTEXT"
+                },
+                {
+                  "name":"BASE_BUCKET_FOLDER",
+                  "value":"${BaseBucketFolder}",
+                  "type":"PLAINTEXT"
+                },
+                {
+                  "name":"SERVICE_S3_FILE",
+                  "value":"${ServiceSourceFile}",
+                  "type":"PLAINTEXT"
+                },
+                {
+                  "name":"REJECT_CODEPIPELINE",
+                  "value":"${RejectCodePipeline}",
+                  "type":"PLAINTEXT"
+                },
+                {
+                  "name":"SERVICE_ENV_S3_FILE",
+                  "value":"${ServiceEnvSourceFile}",
+                  "type":"PLAINTEXT"
+                },
+                {
+                  "name":"TEST_S3_FILE",
+                  "value":"${TestSourceFile}",
+                  "type":"PLAINTEXT"
+                }
+              ]
+          InputArtifacts:
+          - Name: "APP_SOURCE_FILES"
+          OutputArtifacts:
+          - Name: "BUILD_OUTPUT"
+          RunOrder: 1
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  CodePipeline:
+    Description: "The pipeline project created."
+    Value: !Ref CodePipeline
+    Export:
+      Name: !Sub "${AWS::StackName}-CodePipeline"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+    - Label:
+        default: "CodePipeline Configuration"
+      Parameters:
+      - BaseProjectName
+      - ProjectName
+      - BaseBucketFolder
+      - BaseArtifactFolder
+    - Label:
+        default: "CodePipeline Notification Configuration"
+      Parameters:
+      - EnableNotifications
+      - SlackNotificationLambda
+    - Label:
+        default: "Source Configuration"
+      Parameters:
+      - BuildSourceFile
+      - ServiceSourceFile
+      - ServiceEnvSourceFile
+      - TestSourceFile
+    - Label:
+        default: "ECS Repository (ECR) Configuration"
+      Parameters:
+      - EcrImageTag
+    - Label:
+        default: "Approval Configuration"
+      Parameters:
+      - RejectCodePipeline
+    - Label:
+        default: "Tags"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      # General Configuration
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      # CodePipeline Configuration
+      BaseProjectName:
+        default: "Base Project Name:"
+      ProjectName:
+        default: "CodePipeline Project Name:"
+      BaseBucketFolder:
+        default: "CodePipeline Base S3 Project Folder:"
+      BaseArtifactFolder:
+        default: "CodePipeline Base Artifact Folder:"
+      # CodePipeline Notification Configuration
+      EnableNotifications:
+        default: "Enable E-mail and Slack Notifications:"
+      SlackNotificationLambda:
+        default: "Slack Notification Lambda Name:"
+      # Source Configuration
+      BuildSourceFile:
+        default: "CodePipeline Build Source File:"
+      ServiceSourceFile:
+        default: "CodePipeline Service Source File:"
+      ServiceEnvSourceFile:
+        default: "CodePipeline Service Environment Source File:"
+      TestSourceFile:
+        default: "CodePipeline Test Source File:"
+      # ECS Configuration
+      EcrImageTag:
+        default: "ECR Image Tag:"
+      # Approval Configuration
+      RejectCodePipeline:
+        default: "CodePipeline to Reject:"
+      # Tags
+      TagEnvironment:
+        default: "Environment:"

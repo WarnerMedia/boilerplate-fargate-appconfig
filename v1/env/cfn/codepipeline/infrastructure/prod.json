@@ -1,0 +1,6 @@
+{
+  "Parameters": {
+   "ApprovalEnvironment": "production",
+   "EnableManualApproval": "No"
+  }
+}

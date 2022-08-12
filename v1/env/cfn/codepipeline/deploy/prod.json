@@ -1,0 +1,7 @@
+{
+  "Parameters": {
+    "ServiceSourceFile": "service.zip",
+    "ServiceEnvSourceFile": "service-env.zip",
+    "TestSourceFile": "test.zip"
+  }
+}

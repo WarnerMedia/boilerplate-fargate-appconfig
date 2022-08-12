@@ -1,0 +1,28 @@
+#!/bin/sh
+
+get_path () {
+  local path="`dirname \"$0\"`"     # relative
+  path="`( cd \"$path\" && pwd )`"  # absolutized and normalized
+  if [ -z "$path" ] ; then
+    # error; for some reason, the path is not accessible
+    # to the script (e.g. permissions re-evaled after suid)
+    exit 1  # fail
+  fi
+  echo "$path"
+}
+
+# Get the path where this file is located.
+MY_PATH=$(get_path)
+
+# Change to a directory which is one level lower than the directory that this script is in.
+cd "$MY_PATH/../"
+
+# Bump the patch-level SemVer version
+# https://semver.org/
+VERSION=$(npm --no-git-tag-version version patch)
+
+# Adding the updated package.json file before we push.
+# NOTE: Unfortunately this doesn't work as a pre-push, so we do this with each commit.
+git add package.json
+
+exit 0

@@ -1,0 +1,7 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+    - 'BUILD_SCRIPT="$CODEBUILD_SRC_DIR/$APP_BASE_FOLDER/build/aws/codebuild/custom/build.sh"'
+    - 'chmod +x "$BUILD_SCRIPT" && "$BUILD_SCRIPT"'

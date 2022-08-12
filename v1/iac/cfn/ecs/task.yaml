@@ -1,0 +1,572 @@
+AWSTemplateFormatVersion: "2010-09-09"
+# NOTE: This template shouldn't spun up directly, it should always be called by the codepipeline template.
+Description: "Create a new service task. - (v1.0.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  # Log Group Configuration
+  LogGroupBase:
+    Type: "String"
+    Description: "What is the base for the log group name."
+  RetentionInDays:
+    Type: "Number"
+    Description: "The number of days that logs should be retained for this cluster."
+    Default: 7
+  # Task/Service Configuration
+  ContainerImage:
+    Type: "String"
+    Description: "What ECS Docker image should be used for this service (e.g. boilerplate/fargate-nodejs:1234567)?"
+  ServiceBaseName:
+    Type: "String"
+    Description: "What is the name for this service (should generally line up with container image)?"
+    Default: "boilerplate-fargate-nodejs"
+  ContainerPort:
+    Type: "Number"
+    Description: "What port should the container run on?"
+    Default: 8080
+  HealthCheckPath:
+    Type: "String"
+    Description: "What is the path of the health check?"
+    Default: "/hc/"
+  TaskCpu:
+    Type: "String"
+    Description: "Fargate has CPU unit groups (e.g. 256 = .25 vCPU). Which group should this task be in?"
+    AllowedValues:
+    - "256"
+    - "512"
+    - "1024"
+    - "2048"
+    - "4096"
+    Default: "256"
+  TaskMemory:
+    Type: "String"
+    Description: "Fargate has memory reservation groups. Which group should this task be in?"
+    AllowedValues:
+    - "512"
+    - "1024"
+    - "2048"
+    - "3072"
+    - "4096"
+    - "5120"
+    - "6144"
+    - "7168"
+    - "8192"
+    Default: "512"
+  # Environment Variables
+  EnvName1:
+    Type: "String"
+    Description: "Environment variable name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The environment variable name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  EnvValue1:
+    Type: "String"
+    Description: "Environment variable value."
+    Default: ""
+  EnvName2:
+    Type: "String"
+    Description: "Environment variable name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The environment variable name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  EnvValue2:
+    Type: "String"
+    Description: "Environment variable value."
+    Default: ""
+  EnvName3:
+    Type: "String"
+    Description: "Environment variable name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The environment variable name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  EnvValue3:
+    Type: "String"
+    Description: "Environment variable value."
+    Default: ""
+  EnvName4:
+    Type: "String"
+    Description: "Environment variable name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The environment variable name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  EnvValue4:
+    Type: "String"
+    Description: "Environment variable value."
+    Default: ""
+  EnvName5:
+    Type: "String"
+    Description: "Environment variable name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The environment variable name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  EnvValue5:
+    Type: "String"
+    Description: "Environment variable value."
+    Default: ""
+  EnvName6:
+    Type: "String"
+    Description: "Environment variable name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The environment variable name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  EnvValue6:
+    Type: "String"
+    Description: "Environment variable value."
+    Default: "Testing Environment Variable"
+  EnvName7:
+    Type: "String"
+    Description: "Environment variable name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The environment variable name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  EnvValue7:
+    Type: "String"
+    Description: "Environment variable value."
+    Default: ""
+  EnvName8:
+    Type: "String"
+    Description: "Environment variable name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The environment variable name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  EnvValue8:
+    Type: "String"
+    Description: "Environment variable value."
+    Default: ""
+  EnvName9:
+    Type: "String"
+    Description: "Environment variable name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The environment variable name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  EnvValue9:
+    Type: "String"
+    Description: "Environment variable value."
+    Default: ""
+  EnvName10:
+    Type: "String"
+    Description: "Environment variable name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The environment variable name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  EnvValue10:
+    Type: "String"
+    Description: "Environment variable value."
+    Default: ""
+  # Secret Variables
+  SecretName1:
+    Type: "String"
+    Description: "Secret name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The secret name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  SecretName2:
+    Type: "String"
+    Description: "Secret name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The secret name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  SecretName3:
+    Type: "String"
+    Description: "Secret name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The secret name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  SecretName4:
+    Type: "String"
+    Description: "Secret name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The secret name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  SecretName5:
+    Type: "String"
+    Description: "Secret name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The secret name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  SecretName6:
+    Type: "String"
+    Description: "Secret name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The secret name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  SecretName7:
+    Type: "String"
+    Description: "Secret name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The secret name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  SecretName8:
+    Type: "String"
+    Description: "Secret name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The secret name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  SecretName9:
+    Type: "String"
+    Description: "Secret name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The secret name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  SecretName10:
+    Type: "String"
+    Description: "Secret name (leave \"NONE\" if not in use)."
+    AllowedPattern: "[A-Z0-9_]+"
+    ConstraintDescription: "The secret name must match the format of an environment variable: [A-Z0-9_]+"
+    Default: "NONE"
+  # Tag Configuration
+  TagEnvironment:
+    Type: "String"
+    Description: "What is the environment tag?"
+Conditions:
+  Env1: !Not [ !Equals [ !Ref EnvName1, "NONE" ] ]
+  Env2: !Not [ !Equals [ !Ref EnvName2, "NONE" ] ]
+  Env3: !Not [ !Equals [ !Ref EnvName3, "NONE" ] ]
+  Env4: !Not [ !Equals [ !Ref EnvName4, "NONE" ] ]
+  Env5: !Not [ !Equals [ !Ref EnvName5, "NONE" ] ]
+  Env6: !Not [ !Equals [ !Ref EnvName6, "NONE" ] ]
+  Env7: !Not [ !Equals [ !Ref EnvName7, "NONE" ] ]
+  Env8: !Not [ !Equals [ !Ref EnvName8, "NONE" ] ]
+  Env9: !Not [ !Equals [ !Ref EnvName9, "NONE" ] ]
+  Env10: !Not [ !Equals [ !Ref EnvName10, "NONE" ] ]
+  Secret1: !Not [ !Equals [ !Ref SecretName1, "NONE" ] ]
+  Secret2: !Not [ !Equals [ !Ref SecretName2, "NONE" ] ]
+  Secret3: !Not [ !Equals [ !Ref SecretName3, "NONE" ] ]
+  Secret4: !Not [ !Equals [ !Ref SecretName4, "NONE" ] ]
+  Secret5: !Not [ !Equals [ !Ref SecretName5, "NONE" ] ]
+  Secret6: !Not [ !Equals [ !Ref SecretName6, "NONE" ] ]
+  Secret7: !Not [ !Equals [ !Ref SecretName7, "NONE" ] ]
+  Secret8: !Not [ !Equals [ !Ref SecretName8, "NONE" ] ]
+  Secret9: !Not [ !Equals [ !Ref SecretName9, "NONE" ] ]
+  Secret10: !Not [ !Equals [ !Ref SecretName10, "NONE" ] ]
+Resources:
+  ServiceCloudWatchLogsGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "${LogGroupBase}/${ServiceBaseName}/${TagEnvironment}"
+      RetentionInDays: !Ref RetentionInDays
+  TaskExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: "Allow"
+          Principal:
+            Service:
+            - "ecs-tasks.amazonaws.com"
+          Action:
+          - "sts:AssumeRole"
+      ManagedPolicyArns:
+      - "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+      Policies:
+      - PolicyName: "ReadSecrets"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Resource:
+            - !Sub "{{resolve:ssm:/kms/${InfrastructureName}/key/ecs/arn}}"
+            - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:ecs/service/${ServiceBaseName}/${TagEnvironment}/*"
+            - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/aws/reference/secretsmanager/ecs/service/${ServiceBaseName}/${TagEnvironment}/*"
+            Effect: "Allow"
+            Action:
+            - "kms:Decrypt"
+            - "secretsmanager:GetSecretValue"
+            - "ssm:GetParameter"
+            - "ssm:GetParameters"
+  ServiceTaskDefinition:
+    Type: "AWS::ECS::TaskDefinition"
+    # TODO: Look into having old task defnitions retained until we know the service is truly active?
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatereplacepolicy.html
+    DeletionPolicy: "Delete"
+    UpdateReplacePolicy: "Retain"
+    Properties:
+      Family: !Sub "${ServiceBaseName}-${TagEnvironment}"
+      NetworkMode: "awsvpc"
+      RequiresCompatibilities:
+      - "FARGATE"
+      Cpu: !Ref TaskCpu
+      Memory: !Ref TaskMemory
+      ExecutionRoleArn: !Ref TaskExecutionRole
+      ContainerDefinitions:
+      - Name: !Sub "${ServiceBaseName}-${TagEnvironment}"
+        Image: !Ref ContainerImage
+        Cpu: !Ref TaskCpu
+        MemoryReservation: !Ref TaskMemory
+        Memory: !Ref TaskMemory
+        Essential: true
+        PortMappings:
+        - ContainerPort: !Ref ContainerPort
+        LogConfiguration:
+          LogDriver: "awslogs"
+          Options:
+            awslogs-group: !Ref ServiceCloudWatchLogsGroup
+            awslogs-region: !Ref AWS::Region
+            awslogs-stream-prefix: "task"
+        # Task/Service Environment Variables
+        Environment:
+        - Name: "ENVIRONMENT"
+          Value: !Ref TagEnvironment
+        - Name: "REGION"
+          Value: !Ref "AWS::Region"
+        - Name: "HEALTH_CHECK_PATH"
+          Value: !Ref HealthCheckPath
+        - Name: "PORT"
+          Value: !Ref ContainerPort
+        - Name: !If [ Env1, !Ref EnvName1, "ENV1" ]
+          Value: !If [ Env1, !Ref EnvValue1, !Ref "AWS::NoValue" ]
+        - Name: !If [ Env2, !Ref EnvName2, "ENV2" ]
+          Value: !If [ Env2, !Ref EnvValue2, !Ref "AWS::NoValue" ]
+        - Name: !If [ Env3, !Ref EnvName3, "ENV3" ]
+          Value: !If [ Env3, !Ref EnvValue3, !Ref "AWS::NoValue" ]
+        - Name: !If [ Env4, !Ref EnvName4, "ENV4" ]
+          Value: !If [ Env4, !Ref EnvValue4, !Ref "AWS::NoValue" ]
+        - Name: !If [ Env5, !Ref EnvName5, "ENV5" ]
+          Value: !If [ Env5, !Ref EnvValue5, !Ref "AWS::NoValue" ]
+        - Name: !If [ Env6, !Ref EnvName6, "ENV6" ]
+          Value: !If [ Env6, !Ref EnvValue6, !Ref "AWS::NoValue" ]
+        - Name: !If [ Env7, !Ref EnvName7, "ENV7" ]
+          Value: !If [ Env7, !Ref EnvValue7, !Ref "AWS::NoValue" ]
+        - Name: !If [ Env8, !Ref EnvName8, "ENV8" ]
+          Value: !If [ Env8, !Ref EnvValue8, !Ref "AWS::NoValue" ]
+        - Name: !If [ Env9, !Ref EnvName9, "ENV9" ]
+          Value: !If [ Env9, !Ref EnvValue9, !Ref "AWS::NoValue" ]
+        - Name: !If [ Env10, !Ref EnvName10, "ENV10" ]
+          Value: !If [ Env10, !Ref EnvValue10, !Ref "AWS::NoValue" ]
+        Secrets:
+          - !If
+            - Secret1
+            - Name: !Ref SecretName1
+              ValueFrom: !Sub "{{resolve:ssm:/secrets-manager/${InfrastructureName}/secret/ecs/service/${ServiceBaseName}/${TagEnvironment}/arn}}:${SecretName1}::"
+            - Name: "DEFAULT"
+              ValueFrom: !Sub "{{resolve:ssm:/secrets-manager/${InfrastructureName}/secret/ecs/service/${ServiceBaseName}/${TagEnvironment}/arn}}:DEFAULT::"
+          - !If
+            - Secret2
+            - Name: !Ref SecretName2
+              ValueFrom: !Sub "{{resolve:ssm:/secrets-manager/${InfrastructureName}/secret/ecs/service/${ServiceBaseName}/${TagEnvironment}/arn}}:${SecretName2}::"
+            - !Ref "AWS::NoValue"
+          - !If
+            - Secret3
+            - Name: !Ref SecretName3
+              ValueFrom: !Sub "{{resolve:ssm:/secrets-manager/${InfrastructureName}/secret/ecs/service/${ServiceBaseName}/${TagEnvironment}/arn}}:${SecretName3}::"
+            - !Ref "AWS::NoValue"
+          - !If
+            - Secret4
+            - Name: !Ref SecretName4
+              ValueFrom: !Sub "{{resolve:ssm:/secrets-manager/${InfrastructureName}/secret/ecs/service/${ServiceBaseName}/${TagEnvironment}/arn}}:${SecretName4}::"
+            - !Ref "AWS::NoValue"
+          - !If
+            - Secret5
+            - Name: !Ref SecretName5
+              ValueFrom: !Sub "{{resolve:ssm:/secrets-manager/${InfrastructureName}/secret/ecs/service/${ServiceBaseName}/${TagEnvironment}/arn}}:${SecretName5}::"
+            - !Ref "AWS::NoValue"
+          - !If
+            - Secret6
+            - Name: !Ref SecretName6
+              ValueFrom: !Sub "{{resolve:ssm:/secrets-manager/${InfrastructureName}/secret/ecs/service/${ServiceBaseName}/${TagEnvironment}/arn}}:${SecretName6}::"
+            - !Ref "AWS::NoValue"
+          - !If
+            - Secret7
+            - Name: !Ref SecretName7
+              ValueFrom: !Sub "{{resolve:ssm:/secrets-manager/${InfrastructureName}/secret/ecs/service/${ServiceBaseName}/${TagEnvironment}/arn}}:${SecretName7}::"
+            - !Ref "AWS::NoValue"
+          - !If
+            - Secret8
+            - Name: !Ref SecretName8
+              ValueFrom: !Sub "{{resolve:ssm:/secrets-manager/${InfrastructureName}/secret/ecs/service/${ServiceBaseName}/${TagEnvironment}/arn}}:${SecretName8}::"
+            - !Ref "AWS::NoValue"
+          - !If
+            - Secret9
+            - Name: !Ref SecretName9
+              ValueFrom: !Sub "{{resolve:ssm:/secrets-manager/${InfrastructureName}/secret/ecs/service/${ServiceBaseName}/${TagEnvironment}/arn}}:${SecretName9}::"
+            - !Ref "AWS::NoValue"
+          - !If
+            - Secret10
+            - Name: !Ref SecretName10
+              ValueFrom: !Sub "{{resolve:ssm:/secrets-manager/${InfrastructureName}/secret/ecs/service/${ServiceBaseName}/${TagEnvironment}/arn}}:${SecretName10}::"
+            - !Ref "AWS::NoValue"
+Outputs:
+  ServiceLogGroup:
+    Description: "The service CloudWatch Log Group."
+    Value: !Ref ServiceCloudWatchLogsGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-ServiceLogGroup"
+  ServiceLogGroupArn:
+    Description: "The service CloudWatch Log Group ARN."
+    Value: !GetAtt ServiceCloudWatchLogsGroup.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-ServiceLogGroupArn"
+  ServiceTaskDefinition:
+    Description: "The service task definition name and version."
+    Value: !Ref ServiceTaskDefinition
+    Export:
+      Name: !Sub "${AWS::StackName}-ServiceTaskDefinition"
+  ServiceBaseName:
+    Description: "The base name for the service."
+    Value: !Ref ServiceBaseName
+    Export:
+      Name: !Sub "${AWS::StackName}-ServiceBaseName"
+  ContainerPort:
+    Description: "The port for the container."
+    Value: !Ref ContainerPort
+    Export:
+      Name: !Sub "${AWS::StackName}-ContainerPort"
+  ContainerHealthCheckPath:
+    Description: "The health check for the container."
+    Value: !Ref HealthCheckPath
+    Export:
+      Name: !Sub "${AWS::StackName}-ContainerHealthCheckPath"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+    - Label:
+        default: "Log Group Configuration"
+      Parameters:
+      - LogGroupBase
+      - RetentionInDays
+    - Label:
+        default: "Container Configuration"
+      Parameters:
+      - ContainerImage
+      - ServiceBaseName
+      - ContainerPort
+      - HealthCheckPath
+    - Label:
+        default: "Container Environment Configuration"
+      Parameters:
+      - EnvName1
+      - EnvValue1
+      - EnvName2
+      - EnvValue2
+      - EnvName3
+      - EnvValue3
+      - EnvName4
+      - EnvValue4
+      - EnvName5
+      - EnvValue5
+      - EnvName6
+      - EnvValue6
+      - EnvName7
+      - EnvValue7
+      - EnvName8
+      - EnvValue8
+      - EnvName9
+      - EnvValue9
+      - EnvName10
+      - EnvValue10
+    - Label:
+        default: "Container Environment Configuration"
+      Parameters:
+      - SecretName1
+      - SecretName2
+      - SecretName3
+      - SecretName4
+      - SecretName5
+      - SecretName6
+      - SecretName7
+      - SecretName8
+      - SecretName9
+      - SecretName10
+    - Label:
+        default: "Task Configuration"
+      Parameters:
+      - TaskCpu
+      - TaskMemory
+    - Label:
+        default: "Tags"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      # General Configuration
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      # Log Group Configuration
+      LogGroupBase:
+        default: "Log Group Base:"
+      RetentionInDays:
+        default: "Retention In Days:"
+      # Task/Service Configuration
+      ContainerImage:
+        default: "ECS Docker Image:"
+      ServiceBaseName:
+        default: "Service Base Name:"
+      ContainerPort:
+        default: "Container Port:"
+      HealthCheckPath:
+        default: "Health Check Path:"
+      TaskCpu:
+        default: "Task CPU:"
+      TaskMemory:
+        default: "Task Memory:"
+      # Secrets
+      SecretName1:
+        default: "Secret Name:"
+      SecretName2:
+        default: "Secret Name:"
+      SecretName3:
+        default: "Secret Name:"
+      SecretName4:
+        default: "Secret Name:"
+      SecretName5:
+        default: "Secret Name:"
+      SecretName6:
+        default: "Secret Name:"
+      SecretName7:
+        default: "Secret Name:"
+      SecretName8:
+        default: "Secret Name:"
+      SecretName9:
+        default: "Secret Name:"
+      SecretName10:
+        default: "Secret Name:"
+      # Environment Variables
+      EnvName1:
+        default: "Variable Name:"
+      EnvValue1:
+        default: "Variable Value:"
+      EnvName2:
+        default: "Variable Name:"
+      EnvValue2:
+        default: "Variable Value:"
+      EnvName3:
+        default: "Variable Name:"
+      EnvValue3:
+        default: "Variable Value:"
+      EnvName4:
+        default: "Variable Name:"
+      EnvValue4:
+        default: "Variable Value:"
+      EnvName5:
+        default: "Variable Name:"
+      EnvValue5:
+        default: "Secret Value:"
+      EnvName6:
+        default: "Variable Name:"
+      EnvValue6:
+        default: "Variable Value:"
+      EnvName7:
+        default: "Variable Name:"
+      EnvValue7:
+        default: "Variable Value:"
+      EnvName8:
+        default: "Variable Name:"
+      EnvValue8:
+        default: "Variable Value:"
+      EnvName9:
+        default: "Variable Name:"
+      EnvValue9:
+        default: "Variable Value:"
+      EnvName10:
+        default: "Variable Name:"
+      EnvValue10:
+        default: "Secret Value:"
+      # Tags
+      TagEnvironment:
+        default: "Environment:"

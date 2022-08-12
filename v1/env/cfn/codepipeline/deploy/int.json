@@ -1,0 +1,13 @@
+{
+  "Parameters": {
+    "ActionMode": "REPLACE_ON_FAILURE",
+    "ApprovalEnvironment": "qa",
+    "CodeBuildRunAppTests": "Yes",
+    "CodeBuildRunInfrastructureTests": "Yes",
+    "CodeBuildRunSecurityTests": "Yes",
+    "ServiceEnableCdn": "No",
+    "ServiceSourceFile": "service.zip",
+    "ServiceEnvSourceFile": "service-env.zip",
+    "TestSourceFile": "test.zip"
+  }
+}

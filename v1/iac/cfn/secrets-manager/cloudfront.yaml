@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create a new CloudFront secret. - (v1.0.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  ProjectName:
+    Type: "String"
+    Description: "The base name of the CodePipeline project (e.g. foo-bar-baz)."
+Resources:
+  Secret:
+    Type: "AWS::SecretsManager::Secret"
+    Properties:
+      Name: !Sub "cloudfront/origin/${ProjectName}/header"
+      KmsKeyId: !Sub "{{resolve:ssm:/kms/${InfrastructureName}/key/infrastructure/arn}}"
+      Description: "A token needed to verify the CDN with the origin."
+      GenerateSecretString:
+        SecretStringTemplate: '{"name": "x-origin-token"}'
+        GenerateStringKey: "value"
+        PasswordLength: 32
+        IncludeSpace: false
+        ExcludePunctuation: true
+        ExcludeNumbers: false
+        ExcludeLowercase: false
+        ExcludeUppercase: false
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/environment}}"
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  SecretArn:
+    Description: "The ARN for the build secret."
+    Value: !Ref Secret
+    Export:
+      Name: !Sub "${AWS::StackName}-SecretArn"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+      - ProjectName
+    ParameterLabels:
+      # General Configuration
+      InfrastructureName:
+        default: "InfrastructureName:"
+      ProjectName:
+        default: "Project Name:"

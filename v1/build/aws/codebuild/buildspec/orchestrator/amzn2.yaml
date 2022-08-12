@@ -1,0 +1,11 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+    # - "yum update -y"
+    - "yum install -y libzip-tools"
+  build:
+    commands:
+    - 'chmod +x "$CODEBUILD_SRC_DIR/$DEPLOY_SCRIPT_PATH"'
+    - '"$CODEBUILD_SRC_DIR/$DEPLOY_SCRIPT_PATH" -b "$AWS_S3_BUCKET" -f "$AWS_S3_FOLDER" -r "$AWS_REGION" -v "$APP_BASE_FOLDER"'

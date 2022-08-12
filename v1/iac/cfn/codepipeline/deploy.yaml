@@ -1,0 +1,1053 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create the CodePipeline needed to deploy this service - (v1.1.2)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  SecondRegion:
+    Type: "String"
+    Description: "What is the second region this service should be deployed to?"
+    AllowedValues:
+    - "NONE"
+    - "us-east-1"
+    - "us-east-2"
+    - "us-west-2"
+    Default: "us-east-2"
+  # CodeBuild Configuration
+  CodeBuildAppTestProject:
+    Type: "String"
+    Description: "The name of the CodeBuild test project."
+  CodeBuildInfrastructureTestProject:
+    Type: "String"
+    Description: "The name of the CodeBuild infrastructure test project."
+  CodeBuildSecurityTestProject:
+    Type: "String"
+    Description: "The name of the CodeBuild security test project."
+  CodeBuildPromoteProject:
+    Type: "String"
+    Description: "The name of the CodeBuild promote project."
+  CodeBuildPostProdProject:
+    Type: "String"
+    Description: "The name of the CodeBuild post-production project."
+    Default: ""
+  # CodePipeline Configuration
+  BaseProjectName:
+    Type: "String"
+    Description: "The base name of the CodePipeline project (e.g. foo-bar-baz)."
+  ProjectName:
+    Type: "String"
+    Description: "The specific name of the CodePipeline project."
+  AppBaseFolder:
+    Type: "String"
+    Description: "The base repository folder for the application."
+    Default: "v1"
+  ActionMode:
+    Type: "String"
+    Description: "The CodePipeline CloudFormation stack action mode."
+    AllowedValues:
+    - "CHANGE_SET_EXECUTE"
+    - "CHANGE_SET_REPLACE"
+    - "CREATE_UPDATE"
+    - "DELETE_ONLY"
+    - "REPLACE_ON_FAILURE"
+    Default: "CREATE_UPDATE"
+  # CodePipeline Notification Configuration
+  EnableNotifications:
+    Type: "String"
+    Description: "Should an e-mail SNS topic and Slack notification hook be enabled?  Please note this will only work the the Slack notifications Lambda has already been created for this region."
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  SlackNotificationLambda:
+    Type: "String"
+    Description: "What is the name of the function used to send out Slack notifications?"
+    Default: "slack-notification-prod"
+  # Source Configuration
+  BaseArtifactFolder:
+    Type: "String"
+    Description: "The base artifact folder (used mainly for service environment source files)."
+    Default: "base"
+  TestSourceFile:
+    Type: "String"
+    Description: "The name of the ZIP file for the test source."
+    Default: "test.zip"
+  ServiceSourceFile:
+    Type: "String"
+    Description: "The name of the ZIP file for the service source."
+    Default: "service.zip"
+  ServiceEnvSourceFile:
+    Type: "String"
+    Description: "The name of the ZIP file for the service environment source."
+    Default: "service-env.zip"
+  ProdBucket:
+    Type: "String"
+    Description: "The production artifact bucket."
+  # ECR Configuration
+  EcsRepositoryName:
+    Type: "String"
+    Description: "The name of the ECS repository."
+    Default: "boilerplate/fargate-nodejs"
+  EcrImageTag:
+    Type: "String"
+    Description: "The ECS repository image tag."
+    Default: "latest"
+  # Cluster Configuration
+  ClusterName:
+    Type: "String"
+    Description: "The name of the ECS cluster."
+  # Test CodeBuild Configuration
+  CodeBuildRunAppTests:
+    Type: "String"
+    Description: "Are there CodeBuild-based application tests that should be run for this project?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  CodeBuildRunInfrastructureTests:
+    Type: "String"
+    Description: "Are there CodeBuild-based infrastructure tests that should be run for this project?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  CodeBuildRunSecurityTests:
+    Type: "String"
+    Description: "Do you want to run CodeBuild-based security tests for this project?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "No"
+  #Manual Approval Configuration
+  ApprovalMessagePrefix:
+    Type: "String"
+    Description: "Message prefix to be displayed in the approval block."
+    Default: "Should this version of the application be promoted to the"
+  ApprovalEnvironment:
+    Type: "String"
+    Description: "The environment that the Docker image will move to next."
+    Default: ""
+  ApprovalMessageSuffix:
+    Type: "String"
+    Description: "Message prefix to be displayed in the approval block."
+    Default: "environment?"
+  EnableEnvironmentDnsPattern:
+    Type: "String"
+    Description: "Should the DNS pattern which uses environment-level subdomains be enabled?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  # Service Configuration
+  ServiceEnableCdn:
+    Type: "String"
+    Description: "Enabled the CDN for this environment."
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "No"
+  ServiceSubdomain:
+    Type: "String"
+    Description: "What is the base name for the DNS entry? The environment will automatically be added to the end."
+    Default: "boilerplate-fargate-nodejs"
+  ServiceHealthCheckPath:
+    Type: "String"
+    Description: "What is the path of the health check?"
+    Default: "/hc/"
+  ServiceDesiredCount:
+    Type: "Number"
+    Description: "What is the number of Docker container instances that should be launched?"
+    Default: 2
+  # Tags
+  TagEnvironment:
+    Type: "String"
+    Description: "What is the environment tag?"
+    AllowedValues:
+    - "dev"
+    - "int"
+    - "qa"
+    - "stage"
+    - "prod"
+    Default: "int"
+Conditions:
+  AppBaseFolder: !Not [ !Equals [ !Ref AppBaseFolder, "" ] ]
+  ApprovalEnvironment: !Not [ !Equals [ !Ref ApprovalEnvironment, "" ] ]
+  CodeBuildRunAppTests: !Equals [ !Ref CodeBuildRunAppTests, "Yes" ]
+  CodeBuildRunInfrastructureTests: !Equals [ !Ref CodeBuildRunInfrastructureTests, "Yes" ]
+  CodeBuildRunSecurityTests: !Equals [ !Ref CodeBuildRunSecurityTests, "Yes" ]
+  EnableEnvironmentDnsPattern: !Equals [ !Ref EnableEnvironmentDnsPattern, "Yes" ]
+  EnableNotifications: !Equals [ !Ref EnableNotifications, "Yes" ]
+  Production: !Equals [ !Ref TagEnvironment, "prod" ]
+  SecondRegion: !Not [ !Equals [ !Ref SecondRegion, "NONE" ] ]
+  ServiceEnableCdn: !Equals [ !Ref ServiceEnableCdn, "Yes" ]
+  CodeBuildRunAppTestsSecondRegion: !And
+  - !Condition CodeBuildRunAppTests
+  - !Condition SecondRegion
+  CodeBuildRunInfrastructureTestsSecondRegion: !And
+  - !Condition CodeBuildRunInfrastructureTests
+  - !Condition SecondRegion
+  # CodeBuildRunSecurityTestsSecondRegion: !And
+  # - !Condition CodeBuildRunSecurityTests
+  # - !Condition SecondRegion
+Resources:
+  CodePipelineEventsRule:
+    Type: "AWS::Events::Rule"
+    Condition: EnableNotifications
+    Properties:
+      Name: !Sub "codepipeline-${ProjectName}-${TagEnvironment}"
+      Description: !Sub 'Events rule for Slack notifications for the "${ProjectName}-${TagEnvironment}" CodePipeline.'
+      State: "ENABLED"
+      EventPattern:
+        source:
+        - "aws.codepipeline"
+        detail-type: # The following targets just the main CodePipeline states, you can also target individual stages (CodePipeline Stage Execution State Change) or actions (CodePipeline Action Execution State Change)
+        - "CodePipeline Pipeline Execution State Change"
+        # - "CodePipeline Stage Execution State Change"
+        # - "CodePipeline Action Execution State Change"
+        detail:
+          state: # These are the CodePipeline states: CANCELED, FAILED, RESUMED, STARTED, SUCCEEDED, and SUPERSEDED: https://docs.aws.amazon.com/codepipeline/latest/userguide/detect-state-changes-cloudwatch-events.html
+          - "CANCELED"
+          - "FAILED"
+          - "STARTED"
+          - "SUCCEEDED"
+          pipeline:
+          - !Sub "${ProjectName}-${TagEnvironment}"
+      Targets:
+      - Arn: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${SlackNotificationLambda}"
+        Id: !Sub "slack-lambda-${ProjectName}-${TagEnvironment}"
+  CodePipeline:
+    Type: "AWS::CodePipeline::Pipeline"
+    Properties:
+      RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${BaseProjectName}/deploy/arn}}"
+      Name: !Sub "${ProjectName}-${TagEnvironment}"
+      RestartExecutionOnUpdate: true
+      ArtifactStores:
+      - Region: "us-east-1"
+        ArtifactStore:
+          Type: "S3"
+          Location: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/codepipeline/base-name}}-us-east-1"
+      - Region: "us-east-2"
+        ArtifactStore:
+          Type: "S3"
+          Location: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/codepipeline/base-name}}-us-east-2"
+      - Region: "us-west-2"
+        ArtifactStore:
+          Type: "S3"
+          Location: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/codepipeline/base-name}}-us-west-2"
+      Stages:
+      - Name: "Source"
+        Actions:
+        - Name: "ECR_Image"
+          Namespace: "Ecr"
+          ActionTypeId:
+            Category: "Source"
+            Owner: "AWS"
+            Provider: "ECR"
+            Version: "1"
+          Configuration:
+            RepositoryName: !Ref EcsRepositoryName
+            ImageTag: !Ref EcrImageTag
+          OutputArtifacts:
+          - Name: "ECR_IMAGE_FILES"
+          # NOTE: This source produces an artifact named: imageDetail.json
+          # More Details: https://docs.aws.amazon.com/codepipeline/latest/userguide/file-reference.html#file-reference-ecs-bluegreen
+          RunOrder: 1
+        - Name: "Service_Source"
+          Namespace: "Service"
+          ActionTypeId:
+            Category: "Source"
+            Owner: "AWS"
+            Provider: "S3"
+            Version: "1"
+          Configuration:
+            S3Bucket: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/artifact/name}}"
+            S3ObjectKey: !Sub "${ProjectName}/${TagEnvironment}/${ServiceSourceFile}"
+            PollForSourceChanges: "false"
+          OutputArtifacts:
+          - Name: "SERVICE_SOURCE_FILES"
+          RunOrder: 1
+        - Name: "Service_Env_Source"
+          Namespace: "ServiceEnv"
+          ActionTypeId:
+            Category: "Source"
+            Owner: "AWS"
+            Provider: "S3"
+            Version: "1"
+          Configuration:
+            S3Bucket: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/artifact/name}}"
+            #NOTE: This source always pulls from base so that we can pull it at any time from any environment.
+            S3ObjectKey: !Sub "${ProjectName}/${BaseArtifactFolder}/${ServiceEnvSourceFile}"
+            PollForSourceChanges: "false"
+          OutputArtifacts:
+          - Name: "SERVICE_ENV_SOURCE_FILES"
+          RunOrder: 1
+        - Name: "Test_Source"
+          Namespace: "Test"
+          ActionTypeId:
+            Category: "Source"
+            Owner: "AWS"
+            Provider: "S3"
+            Version: "1"
+          Configuration:
+            S3Bucket: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/artifact/name}}"
+            S3ObjectKey: !Sub "${ProjectName}/${TagEnvironment}/${TestSourceFile}"
+            PollForSourceChanges: "false"
+          OutputArtifacts:
+          - Name: "TEST_SOURCE_FILES"
+          RunOrder: 1
+      - !If
+        - CodeBuildRunSecurityTests
+        - Name: "Test_Security"
+          Actions:
+          - Name: "Run_Test_Build_Primary_Region"
+            ActionTypeId:
+              Category: "Test"
+              Owner: "AWS"
+              Provider: "CodeBuild"
+              Version: "1"
+            Configuration:
+              ProjectName: !Ref CodeBuildSecurityTestProject
+              PrimarySource: "TEST_SOURCE_FILES"
+              EnvironmentVariables: !Sub |
+                [
+                  {
+                    "name":"APP_BASE_FOLDER",
+                    "value":"${AppBaseFolder}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"TEST_IMAGE",
+                    "value":"${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcsRepositoryName}@#{Ecr.ImageDigest}",
+                    "type":"PLAINTEXT"
+                  }
+                ]
+            InputArtifacts:
+            - Name: "TEST_SOURCE_FILES"
+            - Name: "ECR_IMAGE_FILES"
+            OutputArtifacts:
+            - Name: "TEST_SECURITY_BUILD_PRIMARY_OUTPUT"
+            RunOrder: 1
+          # - !If
+          #   - CodeBuildRunSecurityTestsSecondRegion
+          #   - Name: "Run_Test_Build_Secondary_Region"
+          #     ActionTypeId:
+          #       Category: "Test"
+          #       Owner: "AWS"
+          #       Provider: "CodeBuild"
+          #       Version: "1"
+          #     Configuration:
+          #       ProjectName: !Ref CodeBuildSecurityTestProject
+          #       PrimarySource: "TEST_SOURCE_FILES"
+          #       EnvironmentVariables: !Sub |
+          #         [
+          #           {
+          #             "name":"APP_BASE_FOLDER",
+          #             "value":"${AppBaseFolder}",
+          #             "type":"PLAINTEXT"
+          #           },
+          #           {
+          #             "name":"TEST_IMAGE",
+          #             "value":"${AWS::AccountId}.dkr.ecr.${SecondRegion}.amazonaws.com/${EcsRepositoryName}@#{Ecr.ImageDigest}",
+          #             "type":"PLAINTEXT"
+          #           }
+          #         ]
+          #     InputArtifacts:
+          #     - Name: "TEST_SOURCE_FILES"
+          #     - Name: "ECR_IMAGE_FILES"
+          #     OutputArtifacts:
+          #     - Name: "TEST_SECURITY_BUILD_SECONDARY_OUTPUT"
+          #     RunOrder: 1
+          #     Region: !Ref SecondRegion
+          #   - !Ref "AWS::NoValue"
+        - !Ref "AWS::NoValue"
+      - !If
+        - CodeBuildRunAppTests
+        - Name: "Test_App"
+          Actions:
+          - Name: "Run_Test_Build_Primary_Region"
+            ActionTypeId:
+              Category: "Test"
+              Owner: "AWS"
+              Provider: "CodeBuild"
+              Version: "1"
+            Configuration:
+              ProjectName: !Ref CodeBuildAppTestProject
+              PrimarySource: "TEST_SOURCE_FILES"
+              EnvironmentVariables: !Sub |
+                [
+                  {
+                    "name":"APP_BASE_FOLDER",
+                    "value":"${AppBaseFolder}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"TEST_IMAGE",
+                    "value":"${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcsRepositoryName}@#{Ecr.ImageDigest}",
+                    "type":"PLAINTEXT"
+                  }
+                ]
+            InputArtifacts:
+            - Name: "TEST_SOURCE_FILES"
+            - Name: "ECR_IMAGE_FILES"
+            OutputArtifacts:
+            - Name: "TEST_APP_BUILD_PRIMARY_OUTPUT"
+            RunOrder: 1
+          - !If
+            - CodeBuildRunAppTestsSecondRegion
+            - Name: "Run_Test_Build_Secondary_Region"
+              ActionTypeId:
+                Category: "Test"
+                Owner: "AWS"
+                Provider: "CodeBuild"
+                Version: "1"
+              Configuration:
+                ProjectName: !Ref CodeBuildAppTestProject
+                PrimarySource: "TEST_SOURCE_FILES"
+                EnvironmentVariables: !Sub |
+                  [
+                    {
+                      "name":"APP_BASE_FOLDER",
+                      "value":"${AppBaseFolder}",
+                      "type":"PLAINTEXT"
+                    },
+                    {
+                      "name":"TEST_IMAGE",
+                      "value":"${AWS::AccountId}.dkr.ecr.${SecondRegion}.amazonaws.com/${EcsRepositoryName}@#{Ecr.ImageDigest}",
+                      "type":"PLAINTEXT"
+                    }
+                  ]
+              InputArtifacts:
+              - Name: "TEST_SOURCE_FILES"
+              - Name: "ECR_IMAGE_FILES"
+              OutputArtifacts:
+              - Name: "TEST_APP_BUILD_SECONDARY_OUTPUT"
+              RunOrder: 1
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+        - !Ref "AWS::NoValue"
+      - Name: "Deploy"
+        Actions:
+        - Name: "Deploy_Service_Task_Primary_Region"
+          ActionTypeId:
+            Category: "Deploy"
+            Owner: "AWS"
+            Provider: "CloudFormation"
+            Version: "1"
+          Configuration:
+            ActionMode: !Ref ActionMode
+            StackName: !Sub "${InfrastructureName}-fargate-task-${ServiceSubdomain}-${TagEnvironment}"
+            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            TemplatePath:
+              Fn::Sub:
+              - "SERVICE_SOURCE_FILES::${Folder}iac/cfn/ecs/task.yaml"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            TemplateConfiguration:
+              Fn::Sub:
+              - "SERVICE_ENV_SOURCE_FILES::${Folder}env/cfn/ecs/task/${TagEnvironment}.json"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${BaseProjectName}/deploy/arn}}"
+            OutputFileName: "out.json"
+            # Service Environment Variables
+            ParameterOverrides: !Sub
+            - |
+              {
+                "LogGroupBase": "/ecs/${ClusterName}",
+                "ContainerImage": "${ContainerImage}",
+                "ServiceBaseName": "${ProjectName}",
+                "HealthCheckPath": "${ServiceHealthCheckPath}",
+                "TagEnvironment": "${TagEnvironment}"
+              }
+            - ContainerImage: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcsRepositoryName}@#{Ecr.ImageDigest}"
+          InputArtifacts:
+          - Name: "ECR_IMAGE_FILES"
+          - Name: "SERVICE_SOURCE_FILES"
+          - Name: "SERVICE_ENV_SOURCE_FILES"
+          OutputArtifacts:
+          - Name: "TASK_OUTPUT_PRIMARY_REGION"
+          RunOrder: 1
+          Region: !Ref "AWS::Region"
+        - !If
+          - SecondRegion
+          - Name: "Deploy_Service_Task_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-fargate-task-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "SERVICE_SOURCE_FILES::${Folder}iac/cfn/ecs/task.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "SERVICE_ENV_SOURCE_FILES::${Folder}env/cfn/ecs/task/${TagEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${BaseProjectName}/deploy/arn}}"
+              OutputFileName: "out.json"
+              # Service Environment Variables
+              ParameterOverrides: !Sub
+              - |
+                {
+                  "LogGroupBase": "/ecs/${ClusterName}",
+                  "ContainerImage": "${ContainerImage}",
+                  "ServiceBaseName": "${ProjectName}",
+                  "HealthCheckPath": "${ServiceHealthCheckPath}",
+                  "TagEnvironment": "${TagEnvironment}"
+                }
+              - ContainerImage: !Sub "${AWS::AccountId}.dkr.ecr.${SecondRegion}.amazonaws.com/${EcsRepositoryName}@#{Ecr.ImageDigest}"
+            InputArtifacts:
+            - Name: "ECR_IMAGE_FILES"
+            - Name: "SERVICE_SOURCE_FILES"
+            - Name: "SERVICE_ENV_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "TASK_OUTPUT_SECONDARY_REGION"
+            RunOrder: 1
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+        - Name: "Deploy_Service_Primary_Region"
+          ActionTypeId:
+            Category: "Deploy"
+            Owner: "AWS"
+            Provider: "CloudFormation"
+            Version: "1"
+          Configuration:
+            ActionMode: !Ref ActionMode
+            StackName: !Sub "${InfrastructureName}-fargate-${ServiceSubdomain}-${TagEnvironment}"
+            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            TemplatePath:
+              Fn::Sub:
+              - "SERVICE_SOURCE_FILES::${Folder}iac/cfn/ecs/service.yaml"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            TemplateConfiguration:
+              Fn::Sub:
+              - "SERVICE_ENV_SOURCE_FILES::${Folder}env/cfn/ecs/service/${TagEnvironment}.json"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${BaseProjectName}/deploy/arn}}"
+            OutputFileName: "out.json"
+            # Service Environment Variables
+            ParameterOverrides: !Sub
+            - |
+              {
+                "ClusterName": "${ClusterName}",
+                "DesiredCount": "${ServiceDesiredCount}",
+                "EnableEnvironmentDnsPattern": "${EnableEnvironmentDnsPattern}",
+                "ServiceTaskDefinition": { "Fn::GetParam" : [ "TASK_OUTPUT_PRIMARY_REGION", "out.json", "ServiceTaskDefinition" ] },
+                "ContainerPort":  { "Fn::GetParam" : [ "TASK_OUTPUT_PRIMARY_REGION", "out.json", "ContainerPort" ] },
+                "ServiceBaseName": { "Fn::GetParam" : [ "TASK_OUTPUT_PRIMARY_REGION", "out.json", "ServiceBaseName" ] },
+                "HealthCheckPath": { "Fn::GetParam" : [ "TASK_OUTPUT_PRIMARY_REGION", "out.json", "ContainerHealthCheckPath" ] },
+                "Subdomain": "${ServiceSubdomain}",
+                "HostedZoneDomain": "{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/domain-name}}",
+                "OriginHeaderName": "${OriginHeaderName}",
+                "OriginHeaderValue": "${OriginHeaderValue}",
+                "TagEnvironment": "${TagEnvironment}"
+              }
+            - OriginHeaderName: !If [ ServiceEnableCdn, !Sub "{{resolve:secretsmanager:arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:cloudfront/origin/${BaseProjectName}/header:SecretString:name}}", "NONE" ]
+              OriginHeaderValue: !If [ ServiceEnableCdn, !Sub "{{resolve:secretsmanager:arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:cloudfront/origin/${BaseProjectName}/header:SecretString:value}}", "NONE" ]
+          InputArtifacts:
+          - Name: "SERVICE_SOURCE_FILES"
+          - Name: "SERVICE_ENV_SOURCE_FILES"
+          - Name: "TASK_OUTPUT_PRIMARY_REGION"
+          OutputArtifacts:
+          - Name: "SERVICE_OUTPUT_PRIMARY_REGION"
+          RunOrder: 2
+          Region: !Ref "AWS::Region"
+        - !If
+          - SecondRegion
+          - Name: "Deploy_Service_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-fargate-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "SERVICE_SOURCE_FILES::${Folder}iac/cfn/ecs/service.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "SERVICE_ENV_SOURCE_FILES::${Folder}env/cfn/ecs/service/${TagEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${BaseProjectName}/deploy/arn}}"
+              OutputFileName: "out.json"
+              # Service Environment Variables
+              ParameterOverrides: !Sub
+              - |
+                {
+                  "ClusterName": "${ClusterName}",
+                  "DesiredCount": "${ServiceDesiredCount}",
+                  "EnableEnvironmentDnsPattern": "${EnableEnvironmentDnsPattern}",
+                  "ServiceTaskDefinition": { "Fn::GetParam" : [ "TASK_OUTPUT_SECONDARY_REGION", "out.json", "ServiceTaskDefinition" ] },
+                  "ContainerPort":  { "Fn::GetParam" : [ "TASK_OUTPUT_SECONDARY_REGION", "out.json", "ContainerPort" ] },
+                  "ServiceBaseName": { "Fn::GetParam" : [ "TASK_OUTPUT_SECONDARY_REGION", "out.json", "ServiceBaseName" ] },
+                  "HealthCheckPath": { "Fn::GetParam" : [ "TASK_OUTPUT_SECONDARY_REGION", "out.json", "ContainerHealthCheckPath" ] },
+                  "Subdomain": "${ServiceSubdomain}",
+                  "HostedZoneDomain": "{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/domain-name}}",
+                  "OriginHeaderName": "${OriginHeaderName}",
+                  "OriginHeaderValue": "${OriginHeaderValue}",
+                  "TagEnvironment": "${TagEnvironment}"
+                }
+              - OriginHeaderName: !If [ ServiceEnableCdn, !Sub "{{resolve:secretsmanager:arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:cloudfront/origin/${BaseProjectName}/header:SecretString:name}}", "NONE" ]
+                OriginHeaderValue: !If [ ServiceEnableCdn, !Sub "{{resolve:secretsmanager:arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:cloudfront/origin/${BaseProjectName}/header:SecretString:value}}", "NONE" ]
+            InputArtifacts:
+            - Name: "SERVICE_SOURCE_FILES"
+            - Name: "SERVICE_ENV_SOURCE_FILES"
+            - Name: "TASK_OUTPUT_SECONDARY_REGION"
+            OutputArtifacts:
+            - Name: "SERVICE_OUTPUT_SECONDARY_REGION"
+            RunOrder: 2
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+        - !If
+          - CodeBuildRunInfrastructureTests
+          - Name: "Run_Test_Build_Primary_Region"
+            ActionTypeId:
+              Category: "Test"
+              Owner: "AWS"
+              Provider: "CodeBuild"
+              Version: "1"
+            Configuration:
+              ProjectName: !Ref CodeBuildInfrastructureTestProject
+              PrimarySource: "TEST_SOURCE_FILES"
+              EnvironmentVariables: !Sub
+              - |
+                [
+                  {
+                    "name":"APP_BASE_FOLDER",
+                    "value":"${AppBaseFolder}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"SERVICE_DOMAIN",
+                    "value": "${RegionDomain}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"SERVICE_HEALTH_CHECK",
+                    "value": "${ServiceHealthCheckPath}",
+                    "type":"PLAINTEXT"
+                  }
+                ]
+              - RegionDomain:
+                  !If
+                  - Production
+                  - !Sub "${ServiceSubdomain}-${AWS::Region}.{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/domain-name}}"
+                  - !If [ EnableEnvironmentDnsPattern, !Sub "${ServiceSubdomain}-${AWS::Region}.${TagEnvironment}.{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/domain-name}}", !Sub "${ServiceSubdomain}-${TagEnvironment}-${AWS::Region}.{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/domain-name}}" ]
+            InputArtifacts:
+            - Name: "TEST_SOURCE_FILES"
+            - Name: "SERVICE_OUTPUT_PRIMARY_REGION"
+            OutputArtifacts:
+            - Name: "TEST_INFRASTRUCTURE_BUILD_OUTPUT_PRIMARY_REGION"
+            RunOrder: 3
+          - !Ref "AWS::NoValue"
+        - !If
+          - CodeBuildRunInfrastructureTestsSecondRegion
+          - Name: "Run_Test_Build_Secondary_Region"
+            ActionTypeId:
+              Category: "Test"
+              Owner: "AWS"
+              Provider: "CodeBuild"
+              Version: "1"
+            Configuration:
+              ProjectName: !Ref CodeBuildInfrastructureTestProject
+              PrimarySource: "TEST_SOURCE_FILES"
+              EnvironmentVariables: !Sub
+              - |
+                [
+                  {
+                    "name":"APP_BASE_FOLDER",
+                    "value":"${AppBaseFolder}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"SERVICE_DOMAIN",
+                    "value": "${RegionDomain}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"SERVICE_HEALTH_CHECK",
+                    "value": "${ServiceHealthCheckPath}",
+                    "type":"PLAINTEXT"
+                  }
+                ]
+              - RegionDomain:
+                  !If
+                  - Production
+                  - !Sub "${ServiceSubdomain}-${SecondRegion}.{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/domain-name}}"
+                  - !If [ EnableEnvironmentDnsPattern, !Sub "${ServiceSubdomain}-${SecondRegion}.${TagEnvironment}.{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/domain-name}}", !Sub "${ServiceSubdomain}-${TagEnvironment}-${SecondRegion}.{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/domain-name}}" ]
+            InputArtifacts:
+            - Name: "TEST_SOURCE_FILES"
+            - Name: "SERVICE_OUTPUT_SECONDARY_REGION"
+            OutputArtifacts:
+            - Name: "TEST_INFRASTRUCTURE_BUILD_OUTPUT_SECONDARY_REGION"
+            RunOrder: 3
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+        - !If
+          - ServiceEnableCdn
+          - Name: "Content_Delivery_Network"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-cdn-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "SERVICE_SOURCE_FILES::${Folder}iac/cfn/cloudfront/distribution.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "SERVICE_ENV_SOURCE_FILES::${Folder}env/cfn/cloudfront/${TagEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${BaseProjectName}/deploy/arn}}"
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "PrimaryCdnDomain": "${ServiceSubdomain}-${TagEnvironment}-cdn.{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/domain-name}}",
+                  "OriginDomain": { "Fn::GetParam" : [ "SERVICE_OUTPUT_PRIMARY_REGION", "out.json", "CrossRegionDomain" ] },
+                  "LoggingBucket": "{{resolve:ssm:/s3/${InfrastructureName}/bucket/logging/cdn/domain-name}}",
+                  "LoggingPrefix": "${TagEnvironment}",
+                  "OriginHeaderName": "{{resolve:secretsmanager:arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:cloudfront/origin/${BaseProjectName}/header:SecretString:name}}",
+                  "OriginHeaderValue": "{{resolve:secretsmanager:arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:cloudfront/origin/${BaseProjectName}/header:SecretString:value}}",
+                  "ProjectName": "${BaseProjectName}",
+                  "TagEnvironment": "${TagEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "SERVICE_SOURCE_FILES"
+            - Name: "SERVICE_ENV_SOURCE_FILES"
+            - Name: "SERVICE_OUTPUT_PRIMARY_REGION"
+            OutputArtifacts:
+            - Name: "CDN_OUTPUT_PRIMARY_REGION"
+            RunOrder: 4
+            Region: "us-east-1"
+          - !Ref "AWS::NoValue"
+        - !If
+          - ApprovalEnvironment
+          - Name: "Approval"
+            ActionTypeId:
+              Category: "Approval"
+              Owner: "AWS"
+              Provider: "Manual"
+              Version: "1"
+            Configuration:
+              CustomData: !Sub "${ApprovalMessagePrefix} \"${ApprovalEnvironment}\" ${ApprovalMessageSuffix}"
+              ExternalEntityLink: !Sub
+              - "https://${Domain}"
+              - Domain:
+                  !If
+                  - Production
+                  - !Sub "${ServiceSubdomain}.{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/domain-name}}${ServiceHealthCheckPath}"
+                  - !If [ EnableEnvironmentDnsPattern, !Sub "${ServiceSubdomain}.${TagEnvironment}.{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/domain-name}}${ServiceHealthCheckPath}", !Sub "${ServiceSubdomain}-${TagEnvironment}.{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/domain-name}}${ServiceHealthCheckPath}" ]
+            RunOrder: 5
+          - !Ref "AWS::NoValue"
+      - !If
+        - ApprovalEnvironment
+        - Name: "Promote"
+          Actions:
+          - Name: "Promote_Application"
+            ActionTypeId:
+              Category: "Build"
+              Owner: "AWS"
+              Provider: "CodeBuild"
+              Version: "1"
+            Configuration:
+              ProjectName: !Ref CodeBuildPromoteProject
+              PrimarySource: "SERVICE_SOURCE_FILES"
+              EnvironmentVariables: !Sub |
+                [
+                  {
+                    "name":"APPROVAL_ENV",
+                    "value":"${ApprovalEnvironment}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"AWS_ECR_IMAGE_DIGEST",
+                    "value":"#{Ecr.ImageDigest}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"CURRENT_ENV",
+                    "value":"${TagEnvironment}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"NONPROD_BUCKET",
+                    "value":"{{resolve:ssm:/s3/${InfrastructureName}/bucket/artifact/name}}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"PROD_BUCKET",
+                    "value":"${ProdBucket}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"PROJECT_NAME",
+                    "value":"${ProjectName}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"SERVICE_S3_FILE",
+                    "value":"${ServiceSourceFile}:#{Service.VersionId}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"TEST_S3_FILE",
+                    "value":"${TestSourceFile}:#{Test.VersionId}",
+                    "type":"PLAINTEXT"
+                  }
+                ]
+            InputArtifacts:
+            - Name: "SERVICE_SOURCE_FILES"
+            RunOrder: 1
+        - !Ref "AWS::NoValue"
+      - !If
+        - Production
+        - Name: "Post_Production"
+          Actions:
+          - Name: "Run_Post_Production_Primary_Region"
+            ActionTypeId:
+              Category: "Test"
+              Owner: "AWS"
+              Provider: "CodeBuild"
+              Version: "1"
+            Configuration:
+              ProjectName: !Ref CodeBuildPostProdProject
+              PrimarySource: "SERVICE_SOURCE_FILES"
+              EnvironmentVariables: !Sub |
+                [
+                  {
+                    "name":"APP_BASE_FOLDER",
+                    "value":"${AppBaseFolder}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"AWS_ECR_IMAGE_DIGEST",
+                    "value":"#{Ecr.ImageDigest}",
+                    "type":"PLAINTEXT"
+                  }
+                ]
+            InputArtifacts:
+            - Name: "SERVICE_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "POST_PROD_BUILD_PRIMARY_OUTPUT"
+            RunOrder: 1
+        - !Ref "AWS::NoValue"
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  CloudWatchEventRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: "Allow"
+          Principal:
+            Service:
+            - "events.amazonaws.com"
+          Action: "sts:AssumeRole"
+      Path: "/"
+      Policies:
+      - PolicyName: !Sub "${CodePipeline}-execution"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: "Allow"
+            Action: "codepipeline:StartPipelineExecution"
+            Resource: !Sub "arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${CodePipeline}"
+  CloudWatchEventRule:
+    Type: "AWS::Events::Rule"
+    Properties:
+      EventPattern:
+        detail:
+          action-type:
+          - "PUSH"
+          image-tag:
+          - !Ref EcrImageTag
+          repository-name:
+          - !Ref EcsRepositoryName
+          result:
+          - "SUCCESS"
+        detail-type:
+        - "ECR Image Action"
+        source:
+        - "aws.ecr"
+      Targets:
+        - Arn: !Sub "arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${CodePipeline}"
+          RoleArn: !GetAtt CloudWatchEventRole.Arn
+          Id: !Sub "codepipeline-${CodePipeline}"
+Outputs:
+  CodePipeline:
+    Description: "The pipeline project created."
+    Value: !Ref CodePipeline
+    Export:
+      Name: !Sub "${AWS::StackName}-CodePipeline"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+      - SecondRegion
+    - Label:
+        default: "CodePipeline Configuration"
+      Parameters:
+      - BaseProjectName
+      - ProjectName
+      - AppBaseFolder
+      - ActionMode
+    - Label:
+        default: "CodePipeline Notification Configuration"
+      Parameters:
+      - EnableNotifications
+      - SlackNotificationLambda
+    - Label:
+        default: "Source Configuration"
+      Parameters:
+      - BaseArtifactFolder
+      - ServiceSourceFile
+      - ServiceEnvSourceFile
+      - TestSourceFile
+      - ProdBucket
+    - Label:
+        default: "ECR Configuration"
+      Parameters:
+      - EcsRepositoryName
+      - EcrImageTag
+    - Label:
+        default: "Cluster Configuration"
+      Parameters:
+      - ClusterName
+    - Label:
+        default: "Testing Configuration"
+      Parameters:
+      - CodeBuildRunAppTests
+      - CodeBuildRunInfrastructureTests
+      - CodeBuildAppTestProject
+      - CodeBuildInfrastructureTestProject
+      - CodeBuildRunSecurityTests
+      - CodeBuildPromoteProject
+    - Label:
+        default: "Approval Configuration"
+      Parameters:
+      - ApprovalMessagePrefix
+      - ApprovalEnvironment
+      - ApprovalMessageSuffix
+      - EnableEnvironmentDnsPattern
+    - Label:
+        default: "Post-Production Configuration"
+      Parameters:
+      - CodeBuildPostProdProject
+    - Label:
+        default: "Service Configuration"
+      Parameters:
+      - ServiceEnableCdn
+      - ServiceSubdomain
+      - ServiceHealthCheckPath
+      - ServiceDesiredCount
+    - Label:
+        default: "Tags"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      # General Configuration
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      SecondRegion:
+        default: "Second Region:"
+      # CodeBuild Configuration
+      CodeBuildAppTestProject:
+        default: "CodeBuild App Test Project Name:"
+      CodeBuildInfrastructureTestProject:
+        default: "CodeBuild Infrastructure Test Project Name:"
+      CodeBuildSecurityTestProject:
+        default: "CodeBuild Security Test Project Name:"
+      CodeBuildPromoteProject:
+        default: "CodeBuild Promote Project Name:"
+      # CodePipeline Configuration
+      BaseProjectName:
+        default: "Base Project Name:"
+      ProjectName:
+        default: "CodePipeline Project Name:"
+      AppBaseFolder:
+        default: "CodePipeline Application Base Folder:"
+      ActionMode:
+        default: "CodePipeline CloudFormation Action Mode:"
+      # CodePipeline Notification Configuration
+      EnableNotifications:
+        default: "Enable E-mail and Slack Notifications:"
+      SlackNotificationLambda:
+        default: "Slack Notification Lambda Name:"
+      # Source Configuration
+      BaseArtifactFolder:
+        default: "Base Artifact Folder:"
+      ServiceSourceFile:
+        default: "Service Source File:"
+      ServiceEnvSourceFile:
+        default: "Service Environment Source File:"
+      TestSourceFile:
+        default: "Test Source File:"
+      ProdBucket:
+        default: "Production Bucket:"
+      EcsRepositoryName:
+        default: "ECS Repository Name:"
+      EcrImageTag:
+        default: "ECR Image Tag:"
+      # Cluster Configuration
+      ClusterName:
+        default: "Cluster Name:"
+      # Testing Configuration
+      CodeBuildRunAppTests:
+        default: "Run Application Tests:"
+      CodeBuildRunInfrastructureTests:
+        default: "Run Infrastructure Tests:"
+      CodeBuildRunSecurityTests:
+        default: "Run Security Tests:"
+      # Approval Configuration
+      ApprovalMessagePrefix:
+        default: "Approval Message Prefix:"
+      ApprovalEnvironment:
+        default: "Approval Environment:"
+      ApprovalMessageSuffix:
+        default: "Approval Message Suffix:"
+      EnableEnvironmentDnsPattern:
+        default: "Enable Environment DNS Pattern:"
+      # Post-Production Configuration
+      CodeBuildPostProdProject:
+        default: "CodeBuild Post-Production Project:"
+      # Service Configuration
+      ServiceEnableCdn:
+        default: "Service Enable CDN:"
+      ServiceSubdomain:
+        default: "Service Subdomain:"
+      ServiceHealthCheckPath:
+        default: "Service Health Check Path:"
+      ServiceDesiredCount:
+        default: "Desired Count:"
+      # Tags
+      TagEnvironment:
+        default: "Environment:"

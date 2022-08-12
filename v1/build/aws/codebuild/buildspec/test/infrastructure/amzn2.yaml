@@ -1,0 +1,20 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+    - "yum install -y bind-utils"
+  pre_build:
+    commands:
+    - 'PRE_BUILD_SCRIPT="$CODEBUILD_SRC_DIR/$APP_BASE_FOLDER/build/aws/codebuild/test/infrastructure/pre_build.sh"'
+    - 'chmod +x "$PRE_BUILD_SCRIPT" && "$PRE_BUILD_SCRIPT"'
+  build:
+    commands:
+    - 'BUILD_SCRIPT="$CODEBUILD_SRC_DIR/$APP_BASE_FOLDER/build/aws/codebuild/test/infrastructure/build.sh"'
+    - 'chmod +x "$BUILD_SCRIPT" && "$BUILD_SCRIPT"'
+reports:
+  cucumber-reports:
+    files:
+    - "$APP_BASE_FOLDER/$TEST_OUTPUT_PATH"
+    discard-paths: "yes"
+    file-format: "CucumberJson"

@@ -1,0 +1,184 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create an IAM Role for build CodePipelines - (v1.0.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  ProjectName:
+    Type: "String"
+    Description: "The base name of the CodePipeline project (e.g. foo-bar-baz)."
+  # Tag Configuration
+  TagEnvironment:
+    Type: "String"
+    Description: "What is the environment tag?"
+Resources:
+  Role:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: "Allow"
+          Principal:
+            Service:
+            - "cloudformation.amazonaws.com"
+            - "codepipeline.amazonaws.com"
+          Action:
+          - "sts:AssumeRole"
+      Policies:
+      - PolicyName: "ServiceRole"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: "Allow"
+            Action:
+            - "iam:AttachRolePolicy"
+            - "iam:CreateRole"
+            - "iam:CreateServiceLinkedRole"
+            - "iam:DeleteRole"
+            - "iam:DeleteRolePermissionsBoundary"
+            - "iam:DeleteRolePolicy"
+            - "iam:DeleteServiceLinkedRole"
+            - "iam:DetachRolePolicy"
+            - "iam:GetRole"
+            - "iam:GetRolePolicy"
+            - "iam:GetServiceLinkedRoleDeletionStatus"
+            - "iam:ListAttachedRolePolicies"
+            - "iam:ListInstanceProfilesForRole"
+            - "iam:ListRolePolicies"
+            - "iam:ListRoleTags"
+            - "iam:PassRole"
+            - "iam:PutRolePermissionsBoundary"
+            - "iam:PutRolePolicy"
+            - "iam:TagRole"
+            - "iam:UntagRole"
+            - "iam:UpdateAssumeRolePolicy"
+            - "iam:UpdateRole"
+            - "iam:UpdateRoleDescription"
+            Resource: "*"
+          - Effect: "Allow"
+            Action:
+            - "kms:GenerateDataKey"
+            - "kms:Decrypt"
+            Resource: !Sub "{{resolve:ssm:/kms/${InfrastructureName}/key/s3/arn}}"
+      ManagedPolicyArns:
+      - "arn:aws:iam::aws:policy/AWSCloudFormationFullAccess"
+      - "arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess"
+      - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+      - "arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess"
+      - "arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess"
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/environment}}"
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  ParamRoleName:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      DataType: "text"
+      Description: "The role name."
+      Name: !Sub "/iam/${InfrastructureName}/role/codepipeline/${ProjectName}/build/name"
+      Tier: "Standard"
+      Type: "String"
+      Value: !Ref Role
+      Tags:
+        Name: !Ref "AWS::StackName"
+        application: !Ref "AWS::StackName"
+        customer: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+        contact-email: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+        environment: !Ref TagEnvironment
+        team: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  ParamRoleArn:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      DataType: "text"
+      Description: "The role ARN."
+      Name: !Sub "/iam/${InfrastructureName}/role/codepipeline/${ProjectName}/build/arn"
+      Tier: "Standard"
+      Type: "String"
+      Value: !GetAtt Role.Arn
+      Tags:
+        Name: !Ref "AWS::StackName"
+        application: !Ref "AWS::StackName"
+        customer: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+        contact-email: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+        environment: !Ref TagEnvironment
+        team: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  ParamRoleId:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      DataType: "text"
+      Description: "The role ID."
+      Name: !Sub "/iam/${InfrastructureName}/role/codepipeline/${ProjectName}/build/id"
+      Tier: "Standard"
+      Type: "String"
+      Value: !GetAtt Role.RoleId
+      Tags:
+        Name: !Ref "AWS::StackName"
+        application: !Ref "AWS::StackName"
+        customer: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+        contact-email: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+        environment: !Ref TagEnvironment
+        team: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  RoleName:
+    Description: "The name of the CodePipeline IAM Role."
+    Value: !Ref Role
+    Export:
+      Name: !Sub "${AWS::StackName}-RoleName"
+  RoleArn:
+    Description: "The ARN of the CodePipeline IAM Role."
+    Value: !GetAtt Role.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-RoleArn"
+  RoleId:
+    Description: "The ID of the CodePipeline IAM Role."
+    Value: !GetAtt Role.RoleId
+    Export:
+      Name: !Sub "${AWS::StackName}-RoleId"
+  # SSM Parameter
+  ParamRoleName:
+    Description: "The role name SSM parameter."
+    Value: !Ref ParamRoleName
+    Export:
+      Name: !Sub "${AWS::StackName}-ParamRoleName"
+  ParamRoleArn:
+    Description: "The role ARN SSM parameter."
+    Value: !Ref ParamRoleArn
+    Export:
+      Name: !Sub "${AWS::StackName}-ParamRoleArn"
+  ParamRoleId:
+    Description: "The role ID SSM parameter."
+    Value: !Ref ParamRoleId
+    Export:
+      Name: !Sub "${AWS::StackName}-ParamRoleId"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+      - ProjectName
+    - Label:
+        default: "Tag Configuration"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      ProjectName:
+        default: "Project Name:"
+      TagEnvironment:
+        default: "Environment:"

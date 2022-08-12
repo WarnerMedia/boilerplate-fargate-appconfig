@@ -1,0 +1,291 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create a WAFv2 WebACL for Cloudfront Distributions (Restricted by CIDR Block) - (v1.0.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  ProjectName:
+    Type: "String"
+    Description: "The base name of the CodePipeline project (e.g. foo-bar-baz)."
+  # Restriction Configuration
+  GlobalAllowedCidrBlockList:
+    Type: "AWS::SSM::Parameter::Value<List<String>>"
+    Description: "Get the list of CIDR blocks from the base infrastructure SSM parameter.  NOTE: Getting it this way because it is the only way to get a dynamic list from an SSM parameter."
+    Default: "/account/main/cidr-block/allowed/list"
+  # Tags
+  TagEnvironment:
+    Type: "String"
+    Description: "What is the environment tag?"
+    AllowedValues:
+    - "nonprod"
+    - "prod"
+    Default: "nonprod"
+Resources:
+  AllowedIPv4Set:
+    Type: "AWS::WAFv2::IPSet"
+    Properties:
+      Description: "Allowed CIDR blocks."
+      Name: !Sub "${InfrastructureName}-${ProjectName}-allowed-cidr-blocks"
+      Scope: "CLOUDFRONT"
+      IPAddressVersion: "IPV4"
+      Addresses: !Ref GlobalAllowedCidrBlockList
+  WebAcl:
+    Type: "AWS::WAFv2::WebACL"
+    Properties:
+      Name: !Sub "${InfrastructureName}-${ProjectName}-${TagEnvironment}"
+      Scope: "CLOUDFRONT"
+      Description: !Sub "Global WAFv2 WebACL for the ${InfrastructureName} ${ProjectName} project."
+      DefaultAction:
+        Block: {}
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: "GlobalWebACLMetric"
+      # Total rule capacity is 1,500
+      Rules:
+      - Name: "AllowedCidrBlocks"
+        Priority: 0
+        Statement:
+          IPSetReferenceStatement:
+            Arn: !GetAtt AllowedIPv4Set.Arn
+        Action:
+          Allow: {}
+        VisibilityConfig:
+          SampledRequestsEnabled: true
+          CloudWatchMetricsEnabled: true
+          MetricName: "AllowedCidrBlocks"
+      # This rule should generally always be enabled.
+      - Name: "AWSManagedRulesCommonRuleSet"
+        Priority: 1
+        Statement:
+          ManagedRuleGroupStatement:
+            VendorName: "AWS"
+            Name: "AWSManagedRulesCommonRuleSet"
+            ExcludedRules: []
+        OverrideAction:
+          # Count: {}
+          None: {}
+        VisibilityConfig:
+          SampledRequestsEnabled: true
+          CloudWatchMetricsEnabled: true
+          MetricName: "AWSManagedRulesCommonRuleSetMetric"
+      - Name: "AWSManagedRulesAmazonIpReputationList"
+        Priority: 2
+        Statement:
+          ManagedRuleGroupStatement:
+            VendorName: "AWS"
+            Name: "AWSManagedRulesAmazonIpReputationList"
+            ExcludedRules: []
+        OverrideAction:
+          # Count: {}
+          None: {}
+        VisibilityConfig:
+          SampledRequestsEnabled: true
+          CloudWatchMetricsEnabled: true
+          MetricName: "AWSManagedRulesAmazonIpReputationListMetric"
+      - Name: "AWSManagedRulesAnonymousIpList"
+        Priority: 3
+        Statement:
+          ManagedRuleGroupStatement:
+            VendorName: "AWS"
+            Name: "AWSManagedRulesAnonymousIpList"
+            ExcludedRules: []
+        OverrideAction:
+          # Count: {}
+          None: {}
+        VisibilityConfig:
+          SampledRequestsEnabled: true
+          CloudWatchMetricsEnabled: true
+          MetricName: "AWSManagedRulesAnonymousIpListMetric"
+      - Name: "AWSManagedRulesKnownBadInputsRuleSet"
+        Priority: 4
+        Statement:
+          ManagedRuleGroupStatement:
+            VendorName: "AWS"
+            Name: "AWSManagedRulesKnownBadInputsRuleSet"
+            ExcludedRules: []
+        OverrideAction:
+          # Count: {}
+          None: {}
+        VisibilityConfig:
+          SampledRequestsEnabled: true
+          CloudWatchMetricsEnabled: true
+          MetricName: "AWSManagedRulesKnownBadInputsRuleSetMetric"
+      # - Name: "AWSManagedRulesAdminProtectionRuleSet"
+      #   Priority: 5
+      #   Statement:
+      #     ManagedRuleGroupStatement:
+      #       VendorName: "AWS"
+      #       Name: "AWSManagedRulesAdminProtectionRuleSet"
+      #       ExcludedRules: []
+      #   OverrideAction:
+      #     Count: {}
+      #   VisibilityConfig:
+      #     SampledRequestsEnabled: true
+      #     CloudWatchMetricsEnabled: true
+      #     MetricName: "AWSManagedRulesAdminProtectionRuleSetMetric"
+      # - Name: "AWSManagedRulesLinuxRuleSet"
+      #   Priority: 6
+      #   Statement:
+      #     ManagedRuleGroupStatement:
+      #       VendorName: "AWS"
+      #       Name: "AWSManagedRulesLinuxRuleSet"
+      #       ExcludedRules: []
+      #   OverrideAction:
+      #     Count: {}
+      #   VisibilityConfig:
+      #     SampledRequestsEnabled: true
+      #     CloudWatchMetricsEnabled: true
+      #     MetricName: "AWSManagedRulesLinuxRuleSetMetric"
+      # - Name: "AWSManagedRulesPHPRuleSet"
+      #   Priority: 7
+      #   Statement:
+      #     ManagedRuleGroupStatement:
+      #       VendorName: "AWS"
+      #       Name: "AWSManagedRulesPHPRuleSet"
+      #       ExcludedRules: []
+      #   OverrideAction:
+      #     Count: {}
+      #   VisibilityConfig:
+      #     SampledRequestsEnabled: true
+      #     CloudWatchMetricsEnabled: true
+      #     MetricName: "AWSManagedRulesPHPRuleSetMetric"
+      # - Name: "AWSManagedRulesUnixRuleSet"
+      #   Priority: 8
+      #   Statement:
+      #     ManagedRuleGroupStatement:
+      #       VendorName: "AWS"
+      #       Name: "AWSManagedRulesUnixRuleSet"
+      #       ExcludedRules: []
+      #   OverrideAction:
+      #     Count: {}
+      #   VisibilityConfig:
+      #     SampledRequestsEnabled: true
+      #     CloudWatchMetricsEnabled: true
+      #     MetricName: "AWSManagedRulesUnixRuleSetMetric"
+      # - Name: "AWSManagedRulesSQLiRuleSet"
+      #   Priority: 9
+      #   Statement:
+      #     ManagedRuleGroupStatement:
+      #       VendorName: "AWS"
+      #       Name: "AWSManagedRulesSQLiRuleSet"
+      #       ExcludedRules: []
+      #   OverrideAction:
+      #     Count: {}
+      #   VisibilityConfig:
+      #     SampledRequestsEnabled: true
+      #     CloudWatchMetricsEnabled: true
+      #     MetricName: "AWSManagedRulesSQLiRuleSetMetric"
+      # - Name: "AWSManagedRulesWindowsRuleSet"
+      #   Priority: 10
+      #   Statement:
+      #     ManagedRuleGroupStatement:
+      #       VendorName: "AWS"
+      #       Name: "AWSManagedRulesWindowsRuleSet"
+      #       ExcludedRules: []
+      #   OverrideAction:
+      #     Count: {}
+      #   VisibilityConfig:
+      #     SampledRequestsEnabled: true
+      #     CloudWatchMetricsEnabled: true
+      #     MetricName: "AWSManagedRulesWindowsRuleSetMetric"
+      # - Name: "AWSManagedRulesWordPressRuleSet"
+      #   Priority: 11
+      #   Statement:
+      #     ManagedRuleGroupStatement:
+      #       VendorName: "AWS"
+      #       Name: "AWSManagedRulesWordPressRuleSet"
+      #       ExcludedRules: []
+      #   OverrideAction:
+      #     Count: {}
+      #   VisibilityConfig:
+      #     SampledRequestsEnabled: true
+      #     CloudWatchMetricsEnabled: true
+      #     MetricName: "AWSManagedRulesWordPressRuleSetMetric"
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  SsmParameter:
+    Type: "AWS::SSM::Parameter"
+    Properties: 
+      Type: "String"
+      Description: "WAF Web ACL ARN"
+      Name: !Sub "/waf/${InfrastructureName}/cloudfront/${ProjectName}/webacl"
+      Value: !GetAtt WebAcl.Arn
+      Tags:
+        Name: !Ref "AWS::StackName"
+        application: !Ref "AWS::StackName"
+        customer: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+        contact-email: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+        environment: !Ref TagEnvironment
+        team: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  WebAcl:
+    Description: "The name, physical ID, and scope for the WAF WebACL."
+    Value: !Ref WebAcl
+    Export:
+      Name: !Sub "${AWS::StackName}-WebAcl"
+  WebAclArn:
+    Description: "The ARN for the WAF WebACL."
+    Value: !GetAtt WebAcl.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-WebAclArn"
+  WebAclId:
+    Description: "The ID for the WAF WebACL."
+    Value: !GetAtt WebAcl.Id
+    Export:
+      Name: !Sub "${AWS::StackName}-WebAclId"
+  SsmParameterName:
+    Description: "The name of the SSM parameter."
+    Value: !Ref SsmParameter
+    Export:
+      Name: !Sub "${AWS::StackName}-SsmParameterName"
+  SsmParameterType:
+    Description: "The type of the SSM parameter."
+    Value: !GetAtt SsmParameter.Type
+    Export:
+      Name: !Sub "${AWS::StackName}-SsmParameterType"
+  SsmParameterValue:
+    Description: "The value of the SSM parameter."
+    Value: !GetAtt SsmParameter.Value
+    Export:
+      Name: !Sub "${AWS::StackName}-SsmParameterValue"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+      - ProjectName
+    - Label:
+        default: "Restriction Configuration"
+      Parameters:
+      - GlobalAllowedCidrBlockList
+    - Label:
+        default: "Tags"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      # Prerequisite Stacks or Services
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      ProjectName:
+        default: "Project Name:"
+      GlobalAllowedCidrBlockList:
+        default: "Global Allowed CIDR Block List:"
+      # Tags
+      TagEnvironment:
+        default: "Environment:"

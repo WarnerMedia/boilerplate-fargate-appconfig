@@ -1,0 +1,30 @@
+version: 0.2
+
+env:
+  secrets-manager:
+    DOCKERHUB_USERNAME: "$DOCKERHUB_USERNAME_KEY"
+    DOCKERHUB_TOKEN: "$DOCKERHUB_TOKEN_KEY"
+    GITHUB_TOKEN: "$GITHUB_OAUTH_TOKEN_NAME"
+
+phases:
+  install:
+    runtime-versions:
+      docker: 18
+    commands:
+    # - "apt-get update -y"
+    - "apt-get install -y jq"
+  pre_build:
+    commands:
+    - 'PRE_BUILD_SCRIPT="$CODEBUILD_SRC_DIR/$APP_BASE_FOLDER/build/aws/codebuild/build/pre_build.sh"'
+    - 'chmod +x "$PRE_BUILD_SCRIPT" && "$PRE_BUILD_SCRIPT"'
+  build:
+    commands:
+    - 'BUILD_SCRIPT="$CODEBUILD_SRC_DIR/$APP_BASE_FOLDER/build/aws/codebuild/build/build.sh"'
+    - 'chmod +x "$BUILD_SCRIPT" && "$BUILD_SCRIPT"'
+  post_build:
+    commands:
+    - 'POST_BUILD_SCRIPT="$CODEBUILD_SRC_DIR/$APP_BASE_FOLDER/build/aws/codebuild/build/post_build.sh"'
+    - 'chmod +x "$POST_BUILD_SCRIPT" && "$POST_BUILD_SCRIPT"'
+artifacts:
+  files: "/tmp/build.json"
+  discard-paths: yes

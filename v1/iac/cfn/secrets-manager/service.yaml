@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create a new ECS service secret. - (v1.0.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  ProjectName:
+    Type: "String"
+    Description: "The base name of the CodePipeline project (e.g. foo-bar-baz)."
+  TagEnvironment:
+    Type: "String"
+    Description: "What is the environment tag?"
+Resources:
+  Secret:
+    Type: "AWS::SecretsManager::Secret"
+    Properties:
+      Name: !Sub "ecs/service/${ProjectName}/${TagEnvironment}/main"
+      KmsKeyId: !Sub "{{resolve:ssm:/kms/${InfrastructureName}/key/ecs/arn}}"
+      # NOTE: Never change the DEFAULT values in the secret, always change it in the console and relaunch your service.
+      #       We never want secret values committed to the template by mistake.
+      SecretString: |
+        {
+          "DEFAULT": "DEFAULT"
+        }
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  ParamSecretArn:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      DataType: "text"
+      Description: !Sub "ECS service secret for the \"${ProjectName}-${TagEnvironment}\" project."
+      Name: !Sub "/secrets-manager/${InfrastructureName}/secret/ecs/service/${ProjectName}/${TagEnvironment}/arn"
+      Tier: "Standard"
+      Type: "String"
+      Value: !Ref Secret
+      Tags:
+        Name: !Ref "AWS::StackName"
+        application: !Ref "AWS::StackName"
+        customer: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+        contact-email: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+        environment: !Ref TagEnvironment
+        team: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  SecretArn:
+    Description: "The ARN for the build secret."
+    Value: !Ref Secret
+    Export:
+      Name: !Sub "${AWS::StackName}-SecretArn"
+  # SSM Parameter
+  ParamSecretArn:
+    Description: "The ARN for the build secret (SSM parameter)."
+    Value: !Ref ParamSecretArn
+    Export:
+      Name: !Sub "${AWS::StackName}-ParamSecretArn"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+      - ProjectName
+      - TagEnvironment
+    ParameterLabels:
+      # General Configuration
+      InfrastructureName:
+        default: "InfrastructureName:"
+      ProjectName:
+        default: "Project Name:"
+      TagEnvironment:
+        default: "Environment:"

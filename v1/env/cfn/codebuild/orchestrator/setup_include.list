@@ -1,0 +1,2 @@
+v1/env/cfn/codepipeline/infrastructure/*
+v1/iac/cfn/codepipeline/infrastructure.yaml

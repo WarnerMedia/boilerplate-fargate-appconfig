@@ -1,0 +1,5 @@
+v1/build/aws/codebuild/buildspec/test/*
+v1/build/aws/codebuild/test/*
+v1/test/*
+v1/docker-compose.yml
+v1/package.json

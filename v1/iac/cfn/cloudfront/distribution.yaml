@@ -1,0 +1,543 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create the CloudFront distribution for an environment - (v1.0.1)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  ProjectName:
+    Type: "String"
+    Description: "The name of the CodePipeline project (e.g. foo-bar-baz)."
+  # DNS Entries
+  PrimaryCdnDomain:
+    Type: "String"
+    Description: "A primary friendly CloudFront domain CNAME for this distribution."
+  CustomCdnDomain:
+    Type: "String"
+    Description: "A custom friendly CloudFront domain CNAME for this distribution."
+    Default: "NONE"
+  AlternateCustomCdnDomain:
+    Type: "String"
+    Description: "An alternate custom friendly CloudFront domain CNAME for this distribution."
+    Default: "NONE"
+  CloudFrontHostedZoneId:
+    Type: "String"
+    Description: "The CloudFront Hosted Zone ID.  This is a global value that should never change unless Amazon changes it."
+    Default: "Z2FDTNDATAQYW2"
+  # SSR Origin
+  OriginDomain:
+    Type: "String"
+    Description: "The origin domain for this distribution."
+  OriginId:
+    Type: "String"
+    Description: "The ID for the primary domain."
+    Default: "app"
+  # General Origin
+  OriginHttpsPort:
+    Type: "Number"
+    Description: "The HTTPS port for the primary origin."
+    Default: 443
+  OriginSslProtocols:
+    Type: "String"
+    Description: "Specifies the minimum SSL/TLS protocol that CloudFront uses when connecting to your origin over HTTPS."
+    AllowedValues:
+    - "SSLv3"
+    - "TLSv1"
+    - "TLSv1.1"
+    - "TLSv1.2"
+    Default: "TLSv1.2"
+  OriginProtocolPolicy:
+    Type: "String"
+    Description: "You can match the protocol sent from the client or lock the requests down to either HTTP or HTTPS."
+    AllowedValues:
+    - "http-only"
+    - "https-only"
+    - "match-viewer"
+    Default: "https-only"
+  #NOTE: The "OriginHeaderName" should never have a default value, it should always be passed in from a secret or manually set.
+  OriginHeaderName:
+    Type: "String"
+    Description: "The name of the header that the CDN should pass to the origin for verification (never set a default value)."
+    NoEcho: true
+  #NOTE: The "OriginHeaderValue" should never have a default value, it should always be passed in from a secret or manually set.
+  OriginHeaderValue:
+    Type: "String"
+    Description: "The value of the header that the CDN should pass to the origin for verification (never set a default value)."
+    NoEcho: true
+  DistributionComment:
+    Type: "String"
+    Description: "A comment to describe this distribution."
+    Default: ""
+  DistributionEnabled:
+    Type: "String"
+    AllowedValues:
+    - "true"
+    - "false"
+    Default: "true"
+  DistributionIpv6Enabled:
+    Type: "String"
+    AllowedValues:
+    - "true"
+    - "false"
+    Default: "true"
+  DistributionHttpVersion:
+    Type: "String"
+    Description: "What is the latest version of the HTTP protocol which is allowed with this distribution?"
+    AllowedValues:
+    - "http1.1"
+    - "http2"
+    Default: "http2"
+  DistributionDefaultRootObject:
+    Type: "String"
+    Description: "What is the default/index page which should be used for this CloudFront Distribution."
+    Default: ""
+  DistributionAllowedMethods:
+    Type: "CommaDelimitedList"
+    Description: "A comma-delimited list of allowed methods: DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT"
+    Default: "HEAD,GET,OPTIONS"
+  DistributionCachedMethods:
+    Type: "CommaDelimitedList"
+    Description: "A comma-delimited list of cached methods.  The only methods that can be cached are: \"HEAD,GET\" or \"GET,HEAD,OPTIONS\""
+    Default: "HEAD,GET,OPTIONS"
+  DistributionCompress:
+    Type: "String"
+    AllowedValues:
+    - "true"
+    - "false"
+    Default: "true"
+  DistributionSmoothStreaming:
+    Type: "String"
+    AllowedValues:
+    - "true"
+    - "false"
+    Default: "false"
+  # Distribution Caching TTL Defaults
+  DistributionErrorCachingMinTtl:
+    Type: "Number"
+    Description: "The default error caching time-to-live for caching."
+    Default: 60
+  DistributionMinimumTtl:
+    Type: "Number"
+    Description: "The minimum time-to-live for caching."
+    Default: 0
+  DistributionMaximumTtl:
+    Type: "Number"
+    Description: "The maximum time-to-live for caching."
+    Default: 31536000
+  DistributionDefaultTtl:
+    Type: "Number"
+    Description: "The default time-to-live for caching."
+    Default: 300
+  ForwardCookies:
+    Type: "String"
+    Description: "What Cookies should be forwarded to the origin?"
+    AllowedValues:
+    - "none"
+    - "all"
+    - "whitelist"
+    Default: "none"
+  ForwardCookiesWhitelistedNames:
+    Type: "CommaDelimitedList"
+    Description: "A comma-delimited list of cookie names which are allowed to be forwarded."
+    Default: ""
+  ForwardHeaderNames:
+    Type: "CommaDelimitedList"
+    Description: "A comma-delimited list of header names which are allowed to be forwarded. Use \"*\" for all. "
+    Default: "Origin,Authorization,Host"
+  ForwardQueryString:
+    Type: "String"
+    AllowedValues:
+    - "true"
+    - "false"
+    Default: "true"
+  ForwardQueryStringCacheKeys:
+    Type: "CommaDelimitedList"
+    Description: "A comma-delimited list of query string cache keys."
+    Default: "sample"
+  DistributionViewerProtocolPolicy:
+    Type: "String"
+    Description: "Allow all protocols, redirect to HTTPS, or HTTPS only."
+    AllowedValues:
+    - "allow-all"
+    - "redirect-to-https"
+    - "https-only"
+    Default: "redirect-to-https"
+  DistributionPriceClass:
+    Type: "String"
+    AllowedValues:
+    - "PriceClass_100"
+    - "PriceClass_200"
+    - "PriceClass_All"
+    Default: "PriceClass_All"
+  GeoRestrictionType:
+    Type: "String"
+    AllowedValues:
+    - "blacklist"
+    - "whitelist"
+    - "none"
+    Default: "none"
+  LoggingIncludeCookies:
+    Type: "String"
+    Description: "Indicates whether CloudFront includes cookies in access logs."
+    AllowedValues:
+    - "true"
+    - "false"
+    Default: "false"
+  LoggingBucket:
+    Type: "String"
+    Description: "The Amazon S3 bucket address where access logs are stored, for example, mybucket.s3.amazonaws.com."
+  LoggingPrefix:
+    Type: "String"
+    Description: "A prefix for the access log file names for this distribution."
+  ViewerCertificateMinimumProtocolVersion:
+    Type: "String"
+    Description: "We recommend that you specify TLSv1.1_2016 unless your users are using browsers or devices that do not support TLSv1.1 or later."
+    AllowedValues:
+    - "SSLv3"
+    - "TLSv1"
+    - "TLSv1_2016"
+    - "TLSv1.1_2016"
+    - "TLSv1.2_2018"
+    Default: "TLSv1.2_2018"
+  ViewerCertificateSslSupportMethod:
+    Type: "String"
+    Description: "vip had a dedicated IP address (needed for older browsers), sni-only needs a fairly modern browser to work."
+    AllowedValues:
+    - "vip"
+    - "sni-only"
+    Default: "sni-only"
+  TagEnvironment:
+    Type: "String"
+    Description: "What is the environment tag?"
+Conditions:
+  DistributionComment: !Not [ !Equals [ !Ref DistributionComment, "" ] ]
+  CustomCdnDomain: !Not [ !Equals [ !Ref CustomCdnDomain, "NONE" ] ]
+  AlternateCustomCdnDomain: !Not [ !Equals [ !Ref AlternateCustomCdnDomain, "NONE" ] ]
+Resources:
+  Distribution:
+    Type: "AWS::CloudFront::Distribution"
+    Properties:
+      DistributionConfig:
+        Aliases:
+        - Ref: PrimaryCdnDomain
+        - !If [ CustomCdnDomain, !Ref CustomCdnDomain, !Ref "AWS::NoValue" ]
+        - !If [ AlternateCustomCdnDomain, !Ref AlternateCustomCdnDomain, !Ref "AWS::NoValue" ]
+        Comment: !If [ DistributionComment, !Ref DistributionComment, !Sub "The CloudFront distribution for the ${TagEnvironment} environment" ]
+        Origins:
+        # Origin
+        - DomainName: !Ref OriginDomain
+          Id: !Ref OriginId
+          OriginCustomHeaders:
+          - HeaderName: !Ref OriginHeaderName
+            HeaderValue: !Ref OriginHeaderValue
+          CustomOriginConfig:
+            HTTPSPort: !Ref OriginHttpsPort
+            OriginSSLProtocols:
+            - !Ref OriginSslProtocols
+            OriginProtocolPolicy: !Ref OriginProtocolPolicy
+        Enabled: !Ref DistributionEnabled
+        IPV6Enabled: !Ref DistributionIpv6Enabled
+        HttpVersion: !Ref DistributionHttpVersion
+        DefaultRootObject: !Ref DistributionDefaultRootObject
+        DefaultCacheBehavior:
+          AllowedMethods: !Ref DistributionAllowedMethods
+          CachedMethods: !Ref DistributionCachedMethods
+          Compress: !Ref DistributionCompress
+          MinTTL: !Ref DistributionMinimumTtl
+          MaxTTL: !Ref DistributionMaximumTtl
+          DefaultTTL: !Ref DistributionDefaultTtl
+          SmoothStreaming: !Ref DistributionSmoothStreaming
+          TargetOriginId: !Ref OriginId
+          ForwardedValues:
+            Cookies:
+              Forward: !Ref ForwardCookies
+              WhitelistedNames: !Ref ForwardCookiesWhitelistedNames
+            Headers: !Ref ForwardHeaderNames
+            QueryString: !Ref ForwardQueryString
+            QueryStringCacheKeys: !Ref ForwardQueryStringCacheKeys
+          ViewerProtocolPolicy: !Ref DistributionViewerProtocolPolicy
+        CustomErrorResponses:
+        # NOTE: In CloudFront, we are only allowed to control the following error codes:
+        # 400, 403, 404, 405, 414, 416, 500, 501, 502, 503, 504
+        # Error codes that can be cached (per the HTTP standard) are:
+        # 404, 405, 410, 501
+        # See cache poisoning attack article: https://cpdos.org
+        - ErrorCode: 404 # Not Found
+          ErrorCachingMinTTL: !Ref DistributionErrorCachingMinTtl
+        - ErrorCode: 405 # Method Not Allowed
+          ErrorCachingMinTTL: !Ref DistributionErrorCachingMinTtl
+        - ErrorCode: 501 # Not Implemented
+          ErrorCachingMinTTL: !Ref DistributionErrorCachingMinTtl
+        # Error codes (that we control) which should never be cached (per the HTTP standard):
+        - ErrorCode: 400 # Bad Request
+          ErrorCachingMinTTL: 0
+        - ErrorCode: 403 # Forbidden
+          ErrorCachingMinTTL: 0
+        - ErrorCode: 414 # Request-URI Too Long
+          ErrorCachingMinTTL: 0
+        - ErrorCode: 416 # Requested Range Not Satisfiable
+          ErrorCachingMinTTL: 0
+        - ErrorCode: 500 # Internal Server Error
+          ErrorCachingMinTTL: 0
+        - ErrorCode: 502 # Bad Gateway
+          ErrorCachingMinTTL: 0
+        - ErrorCode: 503 # Service Unavailable
+          ErrorCachingMinTTL: 0
+        - ErrorCode: 504 # Gateway Timeout
+          ErrorCachingMinTTL: 0
+        Logging:
+          IncludeCookies: !Ref LoggingIncludeCookies
+          Bucket: !Ref LoggingBucket
+          Prefix: !Ref LoggingPrefix
+        PriceClass: !Ref DistributionPriceClass
+        Restrictions:
+          GeoRestriction:
+            RestrictionType: !Ref GeoRestrictionType
+        ViewerCertificate:
+          AcmCertificateArn: !Sub "{{resolve:ssm:/acm/${InfrastructureName}/certificate/arn}}"
+          MinimumProtocolVersion: !Ref ViewerCertificateMinimumProtocolVersion
+          SslSupportMethod: !Ref ViewerCertificateSslSupportMethod
+        WebACLId: !Sub "{{resolve:ssm:/waf/${InfrastructureName}/cloudfront/${ProjectName}/webacl}}"
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  PrimaryCdnDomainEntry:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      HostedZoneId: !Sub "{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/id}}"
+      Comment: !Sub "Primary CloudFront Domain \"A ALIAS\" entry for the ${TagEnvironment} environment."
+      Name: !Ref PrimaryCdnDomain
+      Type: "A"
+      AliasTarget:
+        HostedZoneId: !Ref CloudFrontHostedZoneId
+        DNSName: !GetAtt Distribution.DomainName
+        EvaluateTargetHealth: false
+  CustomCdnDomainEntry:
+    Type: "AWS::Route53::RecordSet"
+    Condition: "CustomCdnDomain"
+    Properties:
+      HostedZoneId: !Sub "{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/id}}"
+      Comment: !Sub "Custom CloudFront domain \"A ALIAS\" entry for the ${TagEnvironment} environment."
+      Name: !Ref CustomCdnDomain
+      Type: "A"
+      AliasTarget:
+        HostedZoneId: !Ref CloudFrontHostedZoneId
+        DNSName: !GetAtt Distribution.DomainName
+        EvaluateTargetHealth: false
+  AlternateCustomCdnDomainEntry:
+    Type: "AWS::Route53::RecordSet"
+    Condition: "AlternateCustomCdnDomain"
+    Properties:
+      HostedZoneId: !Sub "{{resolve:ssm:/route53/${InfrastructureName}/hosted-zone/id}}"
+      Comment: !Sub "Alternate custom CloudFront domain \"A ALIAS\" entry for the ${TagEnvironment} environment."
+      Name: !Ref AlternateCustomCdnDomain
+      Type: "A"
+      AliasTarget:
+        HostedZoneId: !Ref CloudFrontHostedZoneId
+        DNSName: !GetAtt Distribution.DomainName
+        EvaluateTargetHealth: false
+Outputs:
+  DistributionId:
+    Description: "The ID of the CloudFront distribution."
+    Value: !Ref Distribution
+    Export:
+      Name: !Sub "${AWS::StackName}-DistributionId"
+  DistributionDomainName:
+    Description: "The domain name of the CloudFront distribution."
+    Value: !GetAtt Distribution.DomainName
+    Export:
+      Name: !Sub "${AWS::StackName}-DistributionDomainName"
+  PrimaryCdnDomainEntry:
+    Description: "The primary CloudFront domain entry."
+    Value: !Ref PrimaryCdnDomainEntry
+    Export:
+      Name: !Sub "${AWS::StackName}-PrimaryCdnDomainEntry"
+  CustomCdnDomainEntry:
+    Condition: "CustomCdnDomain"
+    Description: "The custom CloudFront domain entry."
+    Value: !Ref CustomCdnDomainEntry
+    Export:
+      Name: !Sub "${AWS::StackName}-CustomCdnDomainEntry"
+  AlternateCustomCdnDomainEntry:
+    Condition: "AlternateCustomCdnDomain"
+    Description: "The alternate custom CloudFront domain entry."
+    Value: !Ref AlternateCustomCdnDomainEntry
+    Export:
+      Name: !Sub "${AWS::StackName}-AlternateCustomCdnDomainEntry"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+      - ProjectName
+    - Label:
+        default: "DNS Configuration"
+      Parameters:
+      - PrimaryCdnDomain
+      - CustomCdnDomain
+      - AlternateCustomCdnDomain
+      - CloudFrontHostedZoneId
+    - Label:
+        default: "General Distribution Configuration"
+      Parameters:
+      - DistributionComment
+      - DistributionEnabled
+      - DistributionIpv6Enabled
+      - DistributionHttpVersion
+      - DistributionDefaultRootObject
+      - DistributionAllowedMethods
+      - DistributionCachedMethods
+      - DistributionCompress
+      - DistributionSmoothStreaming
+      - DistributionViewerProtocolPolicy
+      - DistributionPriceClass
+    - Label:
+        default: "Distribution Caching TTL Defaults"
+      Parameters:
+      - DistributionErrorCachingMinTtl
+      - DistributionMinimumTtl
+      - DistributionMaximumTtl
+      - DistributionDefaultTtl
+    - Label:
+        default: "General Origin Configuration"
+      Parameters:
+      - OriginHttpsPort
+      - OriginSslProtocols
+      - OriginProtocolPolicy
+      - OriginHeaderName
+      - OriginHeaderValue
+    - Label:
+        default: "Individual Origin Configuration"
+      Parameters:
+      - OriginDomain
+      - OriginId
+    - Label:
+        default: "Forwarding Configuration"
+      Parameters:
+      - ForwardCookies
+      - ForwardCookiesWhitelistedNames
+      - ForwardHeaderNames
+      - ForwardQueryString
+      - ForwardQueryStringCacheKeys
+    - Label:
+        default: "GEO Configuration"
+      Parameters:
+      - GeoRestrictionType
+    - Label:
+        default: "Logging Configuration"
+      Parameters:
+      - LoggingIncludeCookies
+      - LoggingBucket
+      - LoggingPrefix
+    - Label:
+        default: "Secure Certificate Configuration"
+      Parameters:
+      - ViewerCertificateMinimumProtocolVersion
+      - ViewerCertificateSslSupportMethod
+    - Label:
+        default: "Tag Configuration"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      # General Configuration
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      ProjectName:
+        default: "Project Name:"
+      # DNS Configuration
+      PrimaryCdnDomain:
+        default: "Primary CloudFront Domain:"
+      CustomCdnDomain:
+        default: "Custom CloudFront Domain:"
+      AlternateCustomCdnDomain:
+        default: "Alternate Custom CloudFront Domain:"
+      CloudFrontHostedZoneId:
+        default: "CloudFront Hosted Zone ID:"
+      # General Distribution Configuration
+      DistributionComment:
+        default: "Comment:"
+      DistributionEnabled:
+        default: "Enable Distribution:"
+      DistributionIpv6Enabled:
+        default: "Enabled IPv6:"
+      DistributionHttpVersion:
+        default: "HTTP Version:"
+      DistributionDefaultRootObject:
+        default: "Default Root Object:"
+      DistributionAllowedMethods:
+        default: "Allowed Methods:"
+      DistributionCachedMethods:
+        default: "Cache Methods:"
+      DistributionCompress:
+        default: "Compress Files:"
+      DistributionSmoothStreaming:
+        default: "Microsoft Smotth Streaming:"
+      DistributionViewerProtocolPolicy:
+        default: "Viewer Protocol Policy:"
+      DistributionPriceClass:
+        default: "Distribution Price Class:"
+      # Distribution Caching TTL Defaults
+      DistributionErrorCachingMinTtl:
+        default: "Distribution Error Caching Minimum TTL:"
+      DistributionMinimumTtl:
+        default: "Distribution Minimum TTL:"
+      DistributionMaximumTtl:
+        default: "Distribution Maximum TTL:"
+      DistributionDefaultTtl:
+        default: "Distribution Default TTL:"
+      # General Origin Configuration
+      OriginHttpsPort:
+        default: "Origin HTTPS Port:"
+      OriginSslProtocols:
+        default: "Origin SSL Protocols:"
+      OriginProtocolPolicy:
+        default: "Origin Protocol Policy:"
+      OriginHeaderName:
+        default: "Origin Header Name:"
+      OriginHeaderValue:
+        default: "Origin Header Value:"
+      # Individual Origin Configuration
+      OriginDomain:
+        default: "Origin Domain:"
+      OriginId:
+        default: "Origin ID:"
+      ForwardCookies:
+        default: "Forward Cookies:"
+      ForwardCookiesWhitelistedNames:
+        default: "Forward Cookies Whitelist Names:"
+      ForwardHeaderNames:
+        default: "Forward Header Names:"
+      ForwardQueryString:
+        default: "Forward Query String:"
+      ForwardQueryStringCacheKeys:
+        default: "Forward Query String Cache Keys:"
+      GeoRestrictionType:
+        default: "GEO Restriction Type:"
+      # Logging Configuration
+      LoggingIncludeCookies:
+        default: "Logging Include Cookies:"
+      LoggingBucket:
+        default: "Logging Bucket:"
+      LoggingPrefix:
+        default: "Logging Prefix:"
+      # Secure Certificate Configuration
+      ViewerCertificateMinimumProtocolVersion:
+        default: "Viewer Certificate Minimum Protocol Version:"
+      ViewerCertificateSslSupportMethod:
+        default: "Viewer Certificate SSL Support Method:"
+      # Tags
+      TagEnvironment:
+        default: "Environment:"

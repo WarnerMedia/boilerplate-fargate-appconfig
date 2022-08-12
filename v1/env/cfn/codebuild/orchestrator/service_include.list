@@ -1,0 +1,7 @@
+v1/build/aws/codebuild/promote/*
+v1/build/aws/codebuild/buildspec/promote/*
+v1/build/aws/codebuild/buildspec/post-production/*
+v1/build/aws/codebuild/post-production/*
+v1/env/cfn/*
+v1/iac/cfn/cloudfront/*
+v1/iac/cfn/ecs/*

@@ -1,0 +1,11 @@
+version: 0.2
+
+env:
+  secrets-manager:
+    GITHUB_TOKEN: "$GITHUB_OAUTH_TOKEN_NAME"
+
+phases:
+  build:
+    commands:
+    - 'BUILD_SCRIPT="$CODEBUILD_SRC_DIR/$APP_BASE_FOLDER/build/aws/codebuild/post-production/build.sh"'
+    - 'chmod +x "$BUILD_SCRIPT" && "$BUILD_SCRIPT"'

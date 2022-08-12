@@ -1,0 +1,18 @@
+version: "3"
+
+services:
+  # Web node
+  service:
+    # By default, this file is set up for running app tests by pulling in an image.
+    # Uncomment the following line for local development.
+    # build: .
+    # Comment the following line out for local development.
+    image: ${TEST_IMAGE}
+    environment:
+    - PORT=8080
+    - APPLICATION_TITLE=Boilerplate Node.js Fargate Application
+    - LOGIN=****
+    - PASSWD=****
+    hostname: localhost
+    ports:
+    - "8080:8080"

@@ -1,0 +1,192 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create the CodeBuild needed to do testing - (v1.1.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  # CodeBuild Configuration
+  ProjectName:
+    Type: "String"
+    Description: "The base name of the CodePipeline project (e.g. foo-bar-baz)."
+    Default: "boilerplate-fargate-nodejs"
+  AppBaseFolder:
+    Type: "String"
+    Description: "The base repository folder for the application."
+    Default: "v1"
+  EcsRepositoryName:
+    Type: "String"
+    Description: "The name of the ECS repository."
+    Default: "boilerplate/fargate-nodejs"
+  CodeBuildRoleArn:
+    Type: "String"
+    Description: "The ARN of the CodeBuild Role."
+  CodeBuildSpecPath:
+    Type: "String"
+    Description: "The path and file name for the application testing BuildSpec file (only needed when testing stage is active)."
+    Default: "build/aws/codebuild/buildspec/test/app/amzn2.yaml"
+  CodeBuildTestOutputPath:
+    Type: "String"
+    Description: "The output path for the testing results (only needed when testing stage is active)."
+    Default: "test/cucumber/output/results.json"
+  CodeBuildComputeType:
+    Type: "String"
+    Description: "The amount of compute needed for this project (Small: 3GB/2CPU, Medium: 7GB/4CPU, Large: 15GB/8CPU, 2X Large: 145GB/72CPU)?"
+    AllowedValues:
+    - "BUILD_GENERAL1_SMALL"
+    - "BUILD_GENERAL1_MEDIUM"
+    - "BUILD_GENERAL1_LARGE"
+    - "BUILD_GENERAL1_2XLARGE"
+    Default: "BUILD_GENERAL1_SMALL"
+  CodeBuildDockerImage:
+    Type: "String"
+    Description: "Which Docker version do you want to use? For other images/runtimes, try to create a project through the interface."
+    AllowedValues:
+    - "aws/codebuild/amazonlinux2-x86_64-standard:1.0"
+    - "aws/codebuild/amazonlinux2-x86_64-standard:2.0"
+    - "aws/codebuild/amazonlinux2-x86_64-standard:3.0"
+    - "aws/codebuild/standard:1.0"
+    - "aws/codebuild/standard:2.0"
+    - "aws/codebuild/standard:3.0"
+    - "aws/codebuild/standard:4.0"
+    Default: "aws/codebuild/amazonlinux2-x86_64-standard:3.0"
+  CodeBuildTimeoutInMinutes:
+    Type: "Number"
+    Default: 10
+  SecuritySecret:
+    Type: "String"
+    Description: "This is the name and key of the Secrets Manager secret which contains the security token."
+    Default: ""
+  # Tags
+  TagEnvironment:
+    Type: "String"
+    Description: "What is the environment tag?"
+    AllowedValues:
+    - "int"
+    - "nonprod"
+    - "prod"
+    - "qa"
+    - "stage"
+    Default: "nonprod"
+Conditions:
+  AppBaseFolder: !Not [ !Equals [ !Ref AppBaseFolder, "" ] ]
+Resources:
+  CodeBuildProject:
+    Type: "AWS::CodeBuild::Project"
+    Properties:
+      Name: !Ref ProjectName
+      Cache:
+        Type: "LOCAL"
+        Location: "LOCAL"
+        Modes:
+        - "LOCAL_SOURCE_CACHE"
+      Environment:
+        ComputeType: !Ref CodeBuildComputeType
+        EnvironmentVariables:
+        - Name: "APP_BASE_FOLDER"
+          Value: !Ref AppBaseFolder
+        - Name: "SECURITY_SECRET"
+          Value: !Ref SecuritySecret
+        - Name: "AWS_ACCOUNT_ID"
+          Value: !Ref "AWS::AccountId"
+        - Name: "IMAGE_REPO_NAME"
+          Value: !Ref EcsRepositoryName
+        - Name: "TEST_OUTPUT_PATH"
+          Value: !Ref CodeBuildTestOutputPath
+        Image: !Ref CodeBuildDockerImage
+        PrivilegedMode: true
+        Type: "LINUX_CONTAINER"
+      TimeoutInMinutes: !Ref CodeBuildTimeoutInMinutes
+      Source:
+        BuildSpec: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/${CodeBuildSpecPath}", !Ref CodeBuildSpecPath ]
+        Type: "CODEPIPELINE"
+      ServiceRole: !Ref CodeBuildRoleArn
+      Artifacts:
+        Type: "CODEPIPELINE"
+      VpcConfig:
+        VpcId: !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/id}}"
+        SecurityGroupIds:
+        - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/security-group/codebuild/general/id}}"
+        Subnets:
+        - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/one}}"
+        - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/two}}"
+        - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/three}}"
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  CodeBuild:
+    Description: "The CodeBuild project created."
+    Value: !Ref CodeBuildProject
+    Export:
+      Name: !Sub "${AWS::StackName}-CodeBuild"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+    - Label:
+        default: "CodePipeline Configuration"
+      Parameters:
+      - ProjectName
+      - AppBaseFolder
+    - Label:
+        default: "Source Configuration"
+      Parameters:
+      - EcsRepositoryName
+    - Label:
+        default: "Testing Configuration"
+      Parameters:
+      - CodeBuildRoleArn
+      - CodeBuildSpecPath
+      - CodeBuildTestOutputPath
+      - CodeBuildComputeType
+      - CodeBuildDockerImage
+      - CodeBuildTimeoutInMinutes
+      - SecuritySecret
+    - Label:
+        default: "Tags"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      # General Configuration
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      # CodePipeline Configuration
+      ProjectName:
+        default: "CodePipeline Project Name:"
+      AppBaseFolder:
+        default: "CodePipeline Application Base Folder:"
+      EcsRepositoryName:
+        default: "ECR Name:"
+      # Testing Configuration
+      CodeBuildRoleArn:
+        default: "CodeBuild ARN:"
+      CodeBuildSpecPath:
+        default: "CodeBuild BuildSpec Path:"
+      CodeBuildTestOutputPath:
+        default: "CodeBuild Output Path:"
+      CodeBuildComputeType:
+        default: "CodeBuild Compute Type:"
+      CodeBuildDockerImage:
+        default: "CodeBuild Docker Image:"
+      CodeBuildTimeoutInMinutes:
+        default: "CodeBuild Timeout:"
+      SecuritySecret:
+        default: "Security Key:"
+      # Tags
+      TagEnvironment:
+        default: "Environment:"

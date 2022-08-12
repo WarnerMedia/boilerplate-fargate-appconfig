@@ -1,0 +1,2246 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create the CodePipeline needed to build the base infrastructure for this service - (v1.2.1)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  SecondRegion:
+    Type: "String"
+    Description: "What is the second region this service should be deployed to?"
+    AllowedValues:
+    - "NONE"
+    - "us-east-1"
+    - "us-east-2"
+    - "us-west-2"
+    Default: "NONE"
+  # CodePipeline Configuration
+  ProjectName:
+    Type: "String"
+    Description: "The base name of the CodePipeline project (e.g. foo-bar-baz)."
+    Default: "boilerplate-fargate-nodejs"
+  InfrastructureSuffix:
+    Type: "String"
+    Description: "The suffix to add to the infrastructure CodePipeline."
+    Default: "infrastructure"
+  BuildSuffix:
+    Type: "String"
+    Description: "The suffix to add to the build CodePipeline."
+    Default: "build"
+  AppBaseFolder:
+    Type: "String"
+    Description: "The base repository folder for the application."
+    Default: "v1"
+  ActionMode:
+    Type: "String"
+    Description: "The CodePipeline CloudFormation stack action mode."
+    AllowedValues:
+    - "CHANGE_SET_EXECUTE"
+    - "CHANGE_SET_REPLACE"
+    - "CREATE_UPDATE"
+    - "DELETE_ONLY"
+    - "REPLACE_ON_FAILURE"
+    Default: "REPLACE_ON_FAILURE"
+  ServiceActionMode:
+    Type: "String"
+    Description: "The CodePipeline CloudFormation stack action mode."
+    AllowedValues:
+    - "CHANGE_SET_EXECUTE"
+    - "CHANGE_SET_REPLACE"
+    - "CREATE_UPDATE"
+    - "DELETE_ONLY"
+    - "REPLACE_ON_FAILURE"
+    Default: "REPLACE_ON_FAILURE"
+  # Manual Approval Configuration
+  ApprovalMessagePrefix:
+    Type: "String"
+    Description: "Message prefix to be displayed in the approval block."
+    Default: "Should the latest infrastructure changes for the"
+  ApprovalEnvironment:
+    Type: "String"
+    Description: "The environment for this approval."
+    Default: ""
+  ApprovalMessageSuffix:
+    Type: "String"
+    Description: "Message prefix to be displayed in the approval block."
+    Default: "environment be deployed?"
+  # Special Feature Configuration
+  EnableManualApproval:
+    Type: "String"
+    Description: "Enable initial manual approval step (used to prevent automatic update of production)."
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "No"
+  EnableCustomBuild:
+    Type: "String"
+    Description: "Enable custom command CodeBuild (for running any needed custom commands)."
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  EnableCdn:
+    Type: "String"
+    Description: "Create all base infrastructure needed to support the CloudFront CDN?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "No"
+  EnableWafCidrRestrictions:
+    Type: "String"
+    Description: "Should the WAF CIDR block restrictions be enabled?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  # Environment Configuration
+  UnstableEnvironment:
+    Type: "String"
+    Description: "The short name for the unstable (stub) environment that code is merged into."
+    Default: "dev"
+  InitialEnvironment:
+    Type: "String"
+    Description: "The short name for the first environment that code is merged into."
+    Default: "int"
+  QaEnvironment:
+    Type: "String"
+    Description: "The short name for the quality assurance environment."
+    Default: "qa"
+  StageEnvironment:
+    Type: "String"
+    Description: "The short name for the staging environment."
+    Default: "stage"
+  ProdEnvironment:
+    Type: "String"
+    Description: "The short name for the production environment."
+    Default: "prod"
+  # CodePipeline Notification Configuration
+  EnableNotifications:
+    Type: "String"
+    Description: "Should an e-mail SNS topic and Slack notification hook be enabled?  Please note this will only work the the Slack notifications Lambda has already been created for this region."
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  SlackNotificationLambda:
+    Type: "String"
+    Description: "What is the name of the function used to send out Slack notifications?"
+    Default: "slack-notification-prod"
+  # Source Configuration
+  DockerHubUsernameKey:
+    Type: "String"
+    Description: "This is the name and key of the Secrets Manager secret which contains the username for Docker Hub access."
+    Default: "account/main/dockerhub:username"
+  DockerHubTokenKey:
+    Type: "String"
+    Description: "This is the name and key of the Secrets Manager secret which contains the access token for Docker Hub access."
+    Default: "account/main/dockerhub:token"
+  GitHubOAuthTokenName:
+    Type: "String"
+    Description: "This is the name and key of the Secrets Manager secret which contains the GitHub OAuth token for source repository access."
+    Default: "account/main/github:oAuthToken"
+  UnstableBranch:
+    Type: "String"
+    Description: "The branch used to build the unstable/DEV environment."
+    Default: "dev"
+  # ECR Configuration
+  EcsRepositoryName:
+    Type: "String"
+    Description: "The base name of the ECS Repository (e.g. boilerplate/foo). The environment will automatically be added to the end."
+    Default: "boilerplate/fargate-nodejs"
+  EcrNonProdAccount:
+    Type: "String"
+    Description: "The Account ID for the non-prod account."
+    Default: "111111122222"
+  EcrProdAccount:
+    Type: "String"
+    Description: "The Account ID for the non-prod account."
+    Default: "222221111111"
+  EcrNonProdImageCount:
+    Type: "String"
+    Description: "The number of non-prod ECR images to keep."
+    Default: "100"
+  EcrProdImageCount:
+    Type: "String"
+    Description: "The number of production ECR images to keep."
+    Default: "30"
+  # ZIP File Configuration
+  ExternalArtifactBucket:
+    Type: "String"
+    Description: "An external artifact bucket that we need to push files to from the current account."
+    Default: ""
+  BuildSourceFile:
+    Type: "String"
+    Description: "The name of the ZIP file for the build source."
+    Default: "build.zip"
+  InfrastructureSourceFile:
+    Type: "String"
+    Description: "The name of the ZIP file for the infrastructure source."
+    Default: "iac.zip"
+  TestSourceFile:
+    Type: "String"
+    Description: "The name of the ZIP file for the test source."
+    Default: "test.zip"
+  ServiceSourceFile:
+    Type: "String"
+    Description: "The name of the ZIP file for the service source."
+    Default: "service.zip"
+  ServiceEnvSourceFile:
+    Type: "String"
+    Description: "The name of the ZIP file for the service environment source."
+    Default: "service-env.zip"
+  # Service Configuration
+  ServiceSubdomain:
+    Type: "String"
+    Description: "What is the base name for the DNS entry? The environment will automatically be added to the end."
+    Default: "boilerplate-fargate-nodejs"
+  ServiceHealthCheckPath:
+    Type: "String"
+    Description: "What is the path of the health check?"
+    Default: "/hc/"
+  # Tags
+  TagEnvironment:
+    Type: "String"
+    Description: "What is the environment tag?"
+    AllowedValues:
+    - "nonprod"
+    - "prod"
+    Default: "nonprod"
+Conditions:
+  AppBaseFolder: !Not [ !Equals [ !Ref AppBaseFolder, "" ] ]
+  EnableCdn: !Equals [ !Ref EnableCdn, "Yes" ]
+  EnableCustomBuild: !Equals [ !Ref EnableCustomBuild, "Yes" ]
+  EnableManualApproval: !Equals [ !Ref EnableManualApproval, "Yes" ]
+  EnableNotifications: !Equals [ !Ref EnableNotifications, "Yes" ]
+  EnableWafCidrRestrictions: !Equals [ !Ref EnableWafCidrRestrictions, "Yes" ]
+  UnstableEnvironment: !Not [ !Equals [ !Ref UnstableEnvironment, "NONE" ] ]
+  InitialEnvironment: !Not [ !Equals [ !Ref InitialEnvironment, "NONE" ] ]
+  NonProdBuild: !Equals [ !Ref EcrNonProdAccount, !Ref "AWS::AccountId" ]
+  ProdEnvironment: !Not [ !Equals [ !Ref ProdEnvironment, "NONE" ] ]
+  QaEnvironment: !Not [ !Equals [ !Ref QaEnvironment, "NONE" ] ]
+  StageEnvironment: !Not [ !Equals [ !Ref StageEnvironment, "NONE" ] ]
+  SecondRegion: !Not [ !Equals [ !Ref SecondRegion, "NONE" ] ]
+  UnstableEnvironmentSecondRegion: !And
+  - !Condition UnstableEnvironment
+  - !Condition SecondRegion
+  InitialEnvironmentSecondRegion: !And
+  - !Condition InitialEnvironment
+  - !Condition SecondRegion
+  ProdEnvironmentSecondRegion: !And
+  - !Condition ProdEnvironment
+  - !Condition SecondRegion
+  QaEnvironmentSecondRegion: !And
+  - !Condition QaEnvironment
+  - !Condition SecondRegion
+  StageEnvironmentSecondRegion: !And
+  - !Condition StageEnvironment
+  - !Condition SecondRegion
+Resources:
+  InfrastructureCodePipelineEventsRule:
+    Type: "AWS::Events::Rule"
+    Condition: EnableNotifications
+    Properties:
+      Name: !Sub "codepipeline-${ProjectName}-${InfrastructureSuffix}"
+      Description: !Sub 'Events rule for Slack notifications for the "${ProjectName}-${InfrastructureSuffix}" CodePipeline.'
+      State: "ENABLED"
+      EventPattern:
+        source:
+        - "aws.codepipeline"
+        detail-type: # The following targets just the main CodePipeline states, you can also target individual stages (CodePipeline Stage Execution State Change) or actions (CodePipeline Action Execution State Change)
+        - "CodePipeline Pipeline Execution State Change"
+        # - "CodePipeline Stage Execution State Change"
+        # - "CodePipeline Action Execution State Change"
+        detail:
+          state: # These are the CodePipeline states: CANCELED, FAILED, RESUMED, STARTED, SUCCEEDED, and SUPERSEDED: https://docs.aws.amazon.com/codepipeline/latest/userguide/detect-state-changes-cloudwatch-events.html
+          - "CANCELED"
+          - "FAILED"
+          - "STARTED"
+          - "SUCCEEDED"
+          pipeline:
+          - !Sub "${ProjectName}-${InfrastructureSuffix}"
+      Targets:
+      - Arn: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${SlackNotificationLambda}"
+        Id: !Sub "slack-lambda-${ProjectName}-${InfrastructureSuffix}"
+  InfrastructureServiceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: "Allow"
+          Principal:
+            Service:
+            - "cloudformation.amazonaws.com"
+            - "codepipeline.amazonaws.com"
+          Action:
+          - "sts:AssumeRole"
+      Policies:
+      - PolicyName: "InfrastructureServiceRole"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: "Allow"
+            Action:
+            - "iam:AttachRolePolicy"
+            - "iam:CreateRole"
+            - "iam:CreateServiceLinkedRole"
+            - "iam:DeleteRole"
+            - "iam:DeleteRolePermissionsBoundary"
+            - "iam:DeleteRolePolicy"
+            - "iam:DeleteServiceLinkedRole"
+            - "iam:DetachRolePolicy"
+            - "iam:GetRole"
+            - "iam:GetRolePolicy"
+            - "iam:GetServiceLinkedRoleDeletionStatus"
+            - "iam:ListAttachedRolePolicies"
+            - "iam:ListInstanceProfilesForRole"
+            - "iam:ListRolePolicies"
+            - "iam:ListRoleTags"
+            - "iam:PassRole"
+            - "iam:PutRolePermissionsBoundary"
+            - "iam:PutRolePolicy"
+            - "iam:TagRole"
+            - "iam:UntagRole"
+            - "iam:UpdateAssumeRolePolicy"
+            - "iam:UpdateRole"
+            - "iam:UpdateRoleDescription"
+            Resource: "*"
+          - Effect: "Allow"
+            Action:
+            - "kms:*"
+            Resource: "*"
+          - Effect: "Allow"
+            Action:
+            - "logs:*"
+            Resource: "*"
+          - Effect: "Allow"
+            Action:
+            - "ecr:*"
+            Resource: "*"
+          - Effect: "Allow"
+            Action:
+            - "ecs:*"
+            Resource: "*"
+          - Effect: "Allow"
+            Action:
+            - "route53:GetHostedZone"
+            - "route53:ChangeResourceRecordSets"
+            - "route53:Get*"
+            - "route53:List*"
+            - "route53:Create*"
+            - "route53:Delete*"
+            Resource: "*"
+          - Effect: "Allow"
+            Action:
+            - "application-autoscaling:DeleteScalingPolicy"
+            - "application-autoscaling:DeregisterScalableTarget"
+            - "application-autoscaling:DescribeScalableTargets"
+            - "application-autoscaling:DescribeScalingActivities"
+            - "application-autoscaling:DescribeScalingPolicies"
+            - "application-autoscaling:PutScalingPolicy"
+            - "application-autoscaling:RegisterScalableTarget"
+            - "cloudwatch:DescribeAlarms"
+            - "cloudwatch:GetMetricStatistics"
+            - "cloudwatch:PutMetricAlarm"
+            - "cloudwatch:DeleteAlarms"
+            - "sns:ListSubscriptions"
+            - "sns:ListTopics"
+            - "sns:Publish"
+            - "logs:DescribeLogStreams"
+            - "logs:GetLogEvents"
+            - "outposts:GetOutpostInstanceTypes"
+            Resource: "*"
+          - Effect: "Allow"
+            Action:
+            - "ssm:AddTagsToResource"
+            - "ssm:DeleteParameter"
+            - "ssm:DeleteParameters"
+            - "ssm:DescribeDocumentParameters"
+            - "ssm:DescribeParameters"
+            - "ssm:GetParameter"
+            - "ssm:GetParameterHistory"
+            - "ssm:GetParameters"
+            - "ssm:GetParametersByPath"
+            - "ssm:LabelParameterVersion"
+            - "ssm:ListTagsForResource"
+            - "ssm:PutParameter"
+            - "ssm:RemoveTagsFromResource"
+            Resource: "*"
+      ManagedPolicyArns:
+      - "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
+      - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+      - "arn:aws:iam::aws:policy/AWSCloudFormationFullAccess"
+      - "arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess"
+      - "arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess"
+      - "arn:aws:iam::aws:policy/AWSWAFFullAccess"
+      # - "arn:aws:iam::aws:policy/CloudFrontFullAccess"
+      - "arn:aws:iam::aws:policy/IAMFullAccess"
+      - "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/environment}}"
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  InfrastructureCodePipeline:
+    Type: "AWS::CodePipeline::Pipeline"
+    Properties:
+      RoleArn: !GetAtt InfrastructureServiceRole.Arn
+      Name: !Sub "${ProjectName}-${InfrastructureSuffix}"
+      RestartExecutionOnUpdate: true
+      ArtifactStores:
+      - Region: "us-east-1"
+        ArtifactStore:
+          Type: "S3"
+          Location: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/codepipeline/base-name}}-us-east-1"
+      - Region: "us-east-2"
+        ArtifactStore:
+          Type: "S3"
+          Location: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/codepipeline/base-name}}-us-east-2"
+      - Region: "us-west-2"
+        ArtifactStore:
+          Type: "S3"
+          Location: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/codepipeline/base-name}}-us-west-2"
+      Stages:
+      - Name: "Source"
+        Actions:
+        - Name: "IaC_Templates"
+          ActionTypeId:
+            Category: "Source"
+            Owner: "AWS"
+            Provider: "S3"
+            Version: "1"
+          Configuration:
+            S3Bucket: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/artifact/name}}"
+            S3ObjectKey: !Sub "${ProjectName}/base/${InfrastructureSourceFile}"
+            PollForSourceChanges: "false"
+          OutputArtifacts:
+          - Name: "IAC_SOURCE_FILES"
+      - !If
+        - EnableManualApproval
+        - Name: "Manual_Approval"
+          Actions:
+          - Name: "Approval"
+            ActionTypeId:
+              Category: "Approval"
+              Owner: "AWS"
+              Provider: "Manual"
+              Version: "1"
+            Configuration:
+              CustomData: !Sub "${ApprovalMessagePrefix} \"${ApprovalEnvironment}\" ${ApprovalMessageSuffix}"
+            RunOrder: 1
+        - !Ref "AWS::NoValue"
+      - Name: "General_IAM_Roles"
+        Actions:
+        - Name: "CodeBuild_Role_Primary_Region"
+          ActionTypeId:
+            Category: "Deploy"
+            Owner: "AWS"
+            Provider: "CloudFormation"
+            Version: "1"
+          Configuration:
+            ActionMode: !Ref ActionMode
+            StackName: !Sub "${InfrastructureName}-codebuild-role-${ServiceSubdomain}-${TagEnvironment}"
+            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            TemplatePath:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}iac/cfn/iam/role/codebuild/standard.yaml"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            TemplateConfiguration:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}env/cfn/iam/role/codebuild/standard.json"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            RoleArn: !GetAtt InfrastructureServiceRole.Arn
+            OutputFileName: "out.json"
+            ParameterOverrides: !Sub |
+              {
+                "InfrastructureName": "${InfrastructureName}",
+                "ProjectName": "${ProjectName}",
+                "ExternalArtifactBucket": "${ExternalArtifactBucket}"
+              }
+          InputArtifacts:
+          - Name: "IAC_SOURCE_FILES"
+          OutputArtifacts:
+          - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+          RunOrder: 1
+          Region: !Ref "AWS::Region"
+        - Name: "CodePipeline_Build_Role_Primary_Region"
+          ActionTypeId:
+            Category: "Deploy"
+            Owner: "AWS"
+            Provider: "CloudFormation"
+            Version: "1"
+          Configuration:
+            ActionMode: !Ref ActionMode
+            StackName: !Sub "${InfrastructureName}-codepipeline-build-role-${ServiceSubdomain}-${TagEnvironment}"
+            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            TemplatePath:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}iac/cfn/iam/role/codepipeline/build.yaml"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            TemplateConfiguration:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}env/cfn/iam/role/codepipeline/build.json"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            RoleArn: !GetAtt InfrastructureServiceRole.Arn
+            OutputFileName: "out.json"
+            ParameterOverrides: !Sub |
+              {
+                "ProjectName": "${ProjectName}",
+                "TagEnvironment": "${TagEnvironment}"
+              }
+          InputArtifacts:
+          - Name: "IAC_SOURCE_FILES"
+          OutputArtifacts:
+          - Name: "CODEPIPELINE_BUILD_ROLE_OUTPUT_PRIMARY_REGION"
+          RunOrder: 1
+          Region: !Ref "AWS::Region"
+        - Name: "CodePipeline_Deploy_Role_Primary_Region"
+          ActionTypeId:
+            Category: "Deploy"
+            Owner: "AWS"
+            Provider: "CloudFormation"
+            Version: "1"
+          Configuration:
+            ActionMode: !Ref ActionMode
+            StackName: !Sub "${InfrastructureName}-codepipeline-deploy-role-${ServiceSubdomain}-${TagEnvironment}"
+            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            TemplatePath:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}iac/cfn/iam/role/codepipeline/deploy.yaml"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            TemplateConfiguration:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}env/cfn/iam/role/codepipeline/deploy.json"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            RoleArn: !GetAtt InfrastructureServiceRole.Arn
+            OutputFileName: "out.json"
+            ParameterOverrides: !Sub |
+              {
+                "ProjectName": "${ProjectName}",
+                "TagEnvironment": "${TagEnvironment}"
+              }
+          InputArtifacts:
+          - Name: "IAC_SOURCE_FILES"
+          OutputArtifacts:
+          - Name: "CODEPIPELINE_DEPLOY_ROLE_OUTPUT_PRIMARY_REGION"
+          RunOrder: 1
+          Region: !Ref "AWS::Region"
+        - !If
+          - SecondRegion
+          - Name: "CodeBuild_Role_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-codebuild-role-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/iam/role/codebuild/standard.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/iam/role/codebuild/standard.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "CODEBUILD_ROLE_OUTPUT_SECONDARY_REGION"
+            RunOrder: 1
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+        - !If
+          - SecondRegion
+          - Name: "CodePipeline_Build_Role_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-codepipeline-build-role-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/iam/role/codepipeline/build.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/iam/role/codepipeline/build.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                "ProjectName": "${ProjectName}",
+                "TagEnvironment": "${TagEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "CODEPIPELINE_BUILD_ROLE_OUTPUT_SECONDARY_REGION"
+            RunOrder: 1
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+        - !If
+          - SecondRegion
+          - Name: "CodePipeline_Deploy_Role_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-codepipeline-deploy-role-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/iam/role/codepipeline/deploy.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/iam/role/codepipeline/deploy.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                "ProjectName": "${ProjectName}",
+                "TagEnvironment": "${TagEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "CODEPIPELINE_DEPLOY_ROLE_OUTPUT_SECONDARY_REGION"
+            RunOrder: 1
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+      - Name: "Elastic_Container_Registry"
+        Actions:
+        - Name: "ECR_Primary_Region"
+          ActionTypeId:
+            Category: "Deploy"
+            Owner: "AWS"
+            Provider: "CloudFormation"
+            Version: "1"
+          Configuration:
+            ActionMode: !Ref ActionMode
+            StackName: !Sub "${InfrastructureName}-ecr-${ServiceSubdomain}-${TagEnvironment}"
+            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            TemplatePath:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}iac/cfn/ecr/repository.yaml"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            TemplateConfiguration:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}env/cfn/ecr/repository.json"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            RoleArn: !GetAtt InfrastructureServiceRole.Arn
+            OutputFileName: "out.json"
+            ParameterOverrides: !Sub 
+            - |
+              {
+                "InfrastructureName": "${InfrastructureName}",
+                "EcsRepositoryName": "${EcsRepositoryName}",
+                "EcrExternalAccount": "${EcrNonProdAccount}",
+                "EcrNonProdImageCount": "${EcrNonProdImageCount}",
+                "EcrProdImageCount": "${EcrProdImageCount}",
+                "TagEnvironment": "${EcrEnvironment}"
+              }
+            - EcrEnvironment: !If [ NonProdBuild, "nonprod", "prod" ]
+          InputArtifacts:
+          - Name: "IAC_SOURCE_FILES"
+          OutputArtifacts:
+          - Name: "ERC_OUTPUT_PRIMARY_REGION"
+          RunOrder: 1
+          Region: !Ref "AWS::Region"
+        - !If
+          - SecondRegion
+          - Name: "ECR_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-ecr-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/ecr/repository.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/ecr/repository.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub
+              - |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "EcsRepositoryName": "${EcsRepositoryName}",
+                  "EcrExternalAccount": "${EcrNonProdAccount}",
+                  "EcrNonProdImageCount": "${EcrNonProdImageCount}",
+                  "EcrProdImageCount": "${EcrProdImageCount}",
+                  "TagEnvironment": "${EcrEnvironment}"
+                }
+              - EcrEnvironment: !If [ NonProdBuild, "nonprod", "prod" ]
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "ERC_OUTPUT_SECONDARY_REGION"
+            RunOrder: 1
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+      - Name: "ECS_Cluster"
+        Actions:
+        - Name: "Cluster_Primary_Region"
+          ActionTypeId:
+            Category: "Deploy"
+            Owner: "AWS"
+            Provider: "CloudFormation"
+            Version: "1"
+          Configuration:
+            ActionMode: !Ref ActionMode
+            StackName: !Sub "${InfrastructureName}-ecs-cluster-${ServiceSubdomain}-${TagEnvironment}"
+            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            TemplatePath:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}iac/cfn/cluster/fargate.yaml"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            TemplateConfiguration:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}env/cfn/cluster/${TagEnvironment}.json"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            RoleArn: !GetAtt InfrastructureServiceRole.Arn
+            OutputFileName: "out.json"
+            ParameterOverrides: !Sub |
+              {
+                "InfrastructureName": "${InfrastructureName}",
+                "ClusterName": "${ProjectName}",
+                "TagEnvironment": "${TagEnvironment}"
+              }
+          InputArtifacts:
+          - Name: "IAC_SOURCE_FILES"
+          OutputArtifacts:
+          - Name: "CLUSTER_OUTPUT_PRIMARY_REGION"
+          RunOrder: 1
+          Region: !Ref "AWS::Region"
+        - !If
+          - SecondRegion
+          - Name: "Cluster_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-ecs-cluster-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/cluster/fargate.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/cluster/${TagEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ClusterName": "${ProjectName}",
+                  "TagEnvironment": "${TagEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "CLUSTER_OUTPUT_SECONDARY_REGION"
+            RunOrder: 1
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+      - !If
+        - EnableCdn
+        - Name: "Content_Delivery_Network"
+          Actions:
+          - Name: "CloudFront_Secrets"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-cloudfront-secrets-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/cloudfront.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/secrets-manager/cloudfront.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "CLOUDFRONT_SECRETS_OUTPUT"
+            RunOrder: 3
+            Region: !Ref "AWS::Region"
+        - !Ref "AWS::NoValue"
+      - Name: "CodeBuild_Projects"
+        Actions:
+        - !If
+          - NonProdBuild
+          - Name: "Promote_CodeBuild_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-promote-codebuild-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/build.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codebuild/build/promote.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}-promote",
+                  "AppBaseFolder": "${AppBaseFolder}",
+                  "EcrProdAccount": "${EcrProdAccount}",
+                  "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
+                  "CodeBuildUnstableBranch": "${UnstableBranch}",
+                  "CodeBuildGitHubOAuthTokenName": "${GitHubOAuthTokenName}",
+                  "SecondRegion": "${SecondRegion}",
+                  "DockerHubUsernameKey": "${DockerHubUsernameKey}",
+                  "DockerHubTokenKey": "${DockerHubTokenKey}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+            RunOrder: 3
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
+          - ProdEnvironment
+          - Name: "Post_Production_CodeBuild_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-post-production-codebuild-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/build.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codebuild/build/post-production.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}-post-production",
+                  "AppBaseFolder": "${AppBaseFolder}",
+                  "EcrProdAccount": "${EcrProdAccount}",
+                  "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
+                  "CodeBuildUnstableBranch": "${UnstableBranch}",
+                  "CodeBuildGitHubOAuthTokenName": "${GitHubOAuthTokenName}",
+                  "SecondRegion": "${SecondRegion}",
+                  "DockerHubUsernameKey": "${DockerHubUsernameKey}",
+                  "DockerHubTokenKey": "${DockerHubTokenKey}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+            RunOrder: 3
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
+          - UnstableEnvironment
+          - Name: !Sub "Build_${UnstableEnvironment}_CodeBuild_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-${UnstableEnvironment}-${BuildSuffix}-codebuild-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/build.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codebuild/build/${UnstableEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}-${UnstableEnvironment}-${BuildSuffix}",
+                  "AppBaseFolder": "${AppBaseFolder}",
+                  "EcrProdAccount": "${EcrProdAccount}",
+                  "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
+                  "CodeBuildUnstableBranch": "${UnstableBranch}",
+                  "CodeBuildGitHubOAuthTokenName": "${GitHubOAuthTokenName}",
+                  "SecondRegion": "${SecondRegion}",
+                  "DockerHubUsernameKey": "${DockerHubUsernameKey}",
+                  "DockerHubTokenKey": "${DockerHubTokenKey}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+            OutputArtifacts:
+            - Name: "BUILD_UNSTABLE_CODEBUILD_OUTPUT_PRIMARY_REGION"
+            RunOrder: 3
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
+          - NonProdBuild
+          - Name: "Build_CodeBuild_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-${BuildSuffix}-codebuild-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/build.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codebuild/build/main.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}-${BuildSuffix}",
+                  "AppBaseFolder": "${AppBaseFolder}",
+                  "EcrProdAccount": "${EcrProdAccount}",
+                  "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
+                  "CodeBuildUnstableBranch": "${UnstableBranch}",
+                  "CodeBuildGitHubOAuthTokenName": "${GitHubOAuthTokenName}",
+                  "SecondRegion": "${SecondRegion}",
+                  "DockerHubUsernameKey": "${DockerHubUsernameKey}",
+                  "DockerHubTokenKey": "${DockerHubTokenKey}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+            OutputArtifacts:
+            - Name: "BUILD_CODEBUILD_OUTPUT_PRIMARY_REGION"
+            RunOrder: 3
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
+          - EnableCustomBuild
+          - Name: "Custom_CodeBuild_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-custom-codebuild-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/build.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codebuild/build/custom.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}-custom",
+                  "AppBaseFolder": "${AppBaseFolder}",
+                  "EcrProdAccount": "${EcrProdAccount}",
+                  "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
+                  "CodeBuildUnstableBranch": "${UnstableBranch}",
+                  "CodeBuildGitHubOAuthTokenName": "${GitHubOAuthTokenName}",
+                  "SecondRegion": "${SecondRegion}",
+                  "DockerHubUsernameKey": "${DockerHubUsernameKey}",
+                  "DockerHubTokenKey": "${DockerHubTokenKey}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+            RunOrder: 3
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - Name: "App_Test_CodeBuild_Primary_Region"
+          ActionTypeId:
+            Category: "Deploy"
+            Owner: "AWS"
+            Provider: "CloudFormation"
+            Version: "1"
+          Configuration:
+            ActionMode: !Ref ActionMode
+            StackName: !Sub "${InfrastructureName}-app-test-codebuild-${ServiceSubdomain}-${TagEnvironment}"
+            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            TemplatePath:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/test.yaml"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            TemplateConfiguration:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}env/cfn/codebuild/test/app.json"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            RoleArn: !GetAtt InfrastructureServiceRole.Arn
+            OutputFileName: "out.json"
+            ParameterOverrides: !Sub 
+            - |
+              {
+                "InfrastructureName": "${InfrastructureName}",
+                "ProjectName": "${ProjectName}-app-test",
+                "AppBaseFolder": "${AppBaseFolder}",
+                "EcsRepositoryName": "${EcsRepositoryName}",
+                "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
+                "TagEnvironment": "${EcrEnvironment}"
+              }
+            - EcrEnvironment: !If [ NonProdBuild, "nonprod", "prod" ]
+          InputArtifacts:
+          - Name: "IAC_SOURCE_FILES"
+          - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+          OutputArtifacts:
+          - Name: "APP_TEST_CODEBUILD_OUTPUT_PRIMARY_REGION"
+          RunOrder: 4
+          Region: !Ref "AWS::Region"
+        - !If
+          - SecondRegion
+          - Name: "App_Test_CodeBuild_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-app-test-codebuild-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/test.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codebuild/test/app.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub
+              - |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}-app-test",
+                  "AppBaseFolder": "${AppBaseFolder}",
+                  "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_SECONDARY_REGION", "out.json", "RoleArn" ] },
+                  "TagEnvironment": "${EcrEnvironment}"
+                }
+              - EcrEnvironment: !If [ NonProdBuild, "nonprod", "prod" ]
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_SECONDARY_REGION"
+            OutputArtifacts:
+            - Name: "APP_TEST_CODEBUILD_OUTPUT_SECONDARY_REGION"
+            RunOrder: 4
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+        - Name: "Infrastructure_Test_CodeBuild_Primary_Region"
+          ActionTypeId:
+            Category: "Deploy"
+            Owner: "AWS"
+            Provider: "CloudFormation"
+            Version: "1"
+          Configuration:
+            ActionMode: !Ref ActionMode
+            StackName: !Sub "${InfrastructureName}-infrastructure-test-codebuild-${ServiceSubdomain}-${TagEnvironment}"
+            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            TemplatePath:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/test.yaml"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            TemplateConfiguration:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}env/cfn/codebuild/test/infrastructure.json"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            RoleArn: !GetAtt InfrastructureServiceRole.Arn
+            OutputFileName: "out.json"
+            ParameterOverrides: !Sub 
+            - |
+              {
+                "InfrastructureName": "${InfrastructureName}",
+                "ProjectName": "${ProjectName}-infrastructure-test",
+                "AppBaseFolder": "${AppBaseFolder}",
+                "EcsRepositoryName": "${EcsRepositoryName}",
+                "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
+                "TagEnvironment": "${EcrEnvironment}"
+              }
+            - EcrEnvironment: !If [ NonProdBuild, "nonprod", "prod" ]
+          InputArtifacts:
+          - Name: "IAC_SOURCE_FILES"
+          - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+          OutputArtifacts:
+          - Name: "INFRASTRUCTURE_TEST_CODEBUILD_OUTPUT_PRIMARY_REGION"
+          RunOrder: 5
+          Region: !Ref "AWS::Region"
+        - !If
+          - SecondRegion
+          - Name: "Infrastructure_Test_CodeBuild_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-infrastructure-test-codebuild-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/test.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codebuild/test/infrastructure.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub
+              - |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}-infrastructure-test",
+                  "AppBaseFolder": "${AppBaseFolder}",
+                  "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_SECONDARY_REGION", "out.json", "RoleArn" ] },
+                  "TagEnvironment": "${EcrEnvironment}"
+                }
+              - EcrEnvironment: !If [ NonProdBuild, "nonprod", "prod" ]
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_SECONDARY_REGION"
+            OutputArtifacts:
+            - Name: "INFRASTRUCTURE_TEST_CODEBUILD_OUTPUT_SECONDARY_REGION"
+            RunOrder: 5
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+        - Name: "Security_Test_CodeBuild_Primary_Region"
+          ActionTypeId:
+            Category: "Deploy"
+            Owner: "AWS"
+            Provider: "CloudFormation"
+            Version: "1"
+          Configuration:
+            ActionMode: !Ref ActionMode
+            StackName: !Sub "${InfrastructureName}-security-test-codebuild-${ServiceSubdomain}-${TagEnvironment}"
+            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            TemplatePath:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/test.yaml"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            TemplateConfiguration:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}env/cfn/codebuild/test/security.json"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            RoleArn: !GetAtt InfrastructureServiceRole.Arn
+            OutputFileName: "out.json"
+            ParameterOverrides: !Sub 
+            - |
+              {
+                "InfrastructureName": "${InfrastructureName}",
+                "ProjectName": "${ProjectName}-security-test",
+                "AppBaseFolder": "${AppBaseFolder}",
+                "EcsRepositoryName": "${EcsRepositoryName}",
+                "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
+                "TagEnvironment": "${EcrEnvironment}"
+              }
+            - EcrEnvironment: !If [ NonProdBuild, "nonprod", "prod" ]
+          InputArtifacts:
+          - Name: "IAC_SOURCE_FILES"
+          - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+          OutputArtifacts:
+          - Name: "SECURITY_TEST_CODEBUILD_OUTPUT_PRIMARY_REGION"
+          RunOrder: 6
+          Region: !Ref "AWS::Region"
+        - !If
+          - SecondRegion
+          - Name: "Security_Test_CodeBuild_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-security-test-codebuild-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/test.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codebuild/test/security.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub
+              - |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}-security-test",
+                  "AppBaseFolder": "${AppBaseFolder}",
+                  "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_SECONDARY_REGION", "out.json", "RoleArn" ] },
+                  "TagEnvironment": "${EcrEnvironment}"
+                }
+              - EcrEnvironment: !If [ NonProdBuild, "nonprod", "prod" ]
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_SECONDARY_REGION"
+            OutputArtifacts:
+            - Name: "SECURITY_TEST_CODEBUILD_OUTPUT_SECONDARY_REGION"
+            RunOrder: 6
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+      - Name: "Service_Secrets"
+        Actions:
+        - !If
+          - UnstableEnvironment
+          - Name: !Sub "Service_Secrets_${UnstableEnvironment}_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${UnstableEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/secrets-manager/service/${UnstableEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}",
+                  "TagEnvironment": "${UnstableEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "SERVICE_UNSTABLE_OUTPUT_PRIMARY_REGION"
+            RunOrder: 1
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
+          - UnstableEnvironmentSecondRegion
+          - Name: !Sub "Service_Secrets_${UnstableEnvironment}_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${UnstableEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/secrets-manager/service/${UnstableEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}",
+                  "TagEnvironment": "${UnstableEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "SERVICE_UNSTABLE_OUTPUT_SECONDARY_REGION"
+            RunOrder: 1
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+        - !If
+          - InitialEnvironment
+          - Name: !Sub "Service_Secrets_${InitialEnvironment}_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${InitialEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/secrets-manager/service/${InitialEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}",
+                  "TagEnvironment": "${InitialEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "SERVICE_INITIAL_OUTPUT_PRIMARY_REGION"
+            RunOrder: 2
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
+          - InitialEnvironmentSecondRegion
+          - Name: !Sub "Service_Secrets_${InitialEnvironment}_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${InitialEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/secrets-manager/service/${InitialEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}",
+                  "TagEnvironment": "${InitialEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "SERVICE_INITIAL_OUTPUT_SECONDARY_REGION"
+            RunOrder: 2
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+        - !If
+          - QaEnvironment
+          - Name: !Sub "Service_Secrets_${QaEnvironment}_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${QaEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/secrets-manager/service/${QaEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}",
+                  "TagEnvironment": "${QaEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "SERVICE_QA_OUTPUT_PRIMARY_REGION"
+            RunOrder: 3
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
+          - QaEnvironmentSecondRegion
+          - Name: !Sub "Service_Secrets_${QaEnvironment}_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${QaEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/secrets-manager/service/${QaEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}",
+                  "TagEnvironment": "${QaEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "SERVICE_QA_OUTPUT_SECONDARY_REGION"
+            RunOrder: 3
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+        - !If
+          - StageEnvironment
+          - Name: !Sub "Service_Secrets_${StageEnvironment}_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${StageEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/secrets-manager/service/${StageEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}",
+                  "TagEnvironment": "${StageEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "SERVICE_STAGE_OUTPUT_PRIMARY_REGION"
+            RunOrder: 4
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
+          - StageEnvironmentSecondRegion
+          - Name: !Sub "Service_Secrets_${StageEnvironment}_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${StageEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/secrets-manager/service/${StageEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}",
+                  "TagEnvironment": "${StageEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "SERVICE_STAGE_OUTPUT_SECONDARY_REGION"
+            RunOrder: 4
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+        - !If
+          - ProdEnvironment
+          - Name: !Sub "Service_Secrets_${ProdEnvironment}_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${ProdEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/secrets-manager/service/${ProdEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}",
+                  "TagEnvironment": "${ProdEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "SERVICE_PROD_OUTPUT_PRIMARY_REGION"
+            RunOrder: 5
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
+          - ProdEnvironmentSecondRegion
+          - Name: !Sub "Service_Secrets_${ProdEnvironment}_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${ProdEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/secrets-manager/service/${ProdEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}",
+                  "TagEnvironment": "${ProdEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "SERVICE_PROD_OUTPUT_SECONDARY_REGION"
+            RunOrder: 5
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
+      - !If
+        - EnableCdn
+        - Name: "Web_Application_Firewall"
+          Actions:
+          - Name: "CloudFront_WAF"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-cloudfront-waf-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              # Because of how WAF rules work, it makes sense to split into two separate templates to reduce the chance of the WAF being replaced instead of updated.
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/waf/cloudfront/${File}"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                  File: !If [ EnableWafCidrRestrictions, "restricted.yaml", "open.yaml" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/waf/cloudfront.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}",
+                  "TagEnvironment": "${TagEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "CLOUDFRONT_WAF_OUTPUT"
+            RunOrder: 1
+            Region: "us-east-1"
+        - !Ref "AWS::NoValue"
+      - Name: "Application_Deployment"
+        Actions:
+        - !If
+          - UnstableEnvironment
+          - Name: !Sub "Build_${UnstableEnvironment}_CodePipeline"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-codepipeline-${ServiceSubdomain}-${BuildSuffix}-${UnstableEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codepipeline/build.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codepipeline/build/${UnstableEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "BaseProjectName": "${ProjectName}",
+                  "ProjectName": "${ProjectName}-${UnstableEnvironment}",
+                  "BaseBucketFolder": "${ProjectName}",
+                  "BaseArtifactFolder": "${UnstableBranch}/init",
+                  "CodeBuildProject": "${ProjectName}-${UnstableEnvironment}-${BuildSuffix}",
+                  "EcrImageTag": "${UnstableBranch}",
+                  "TagEnvironment": "${BuildSuffix}",
+                  "BuildSourceFile": "${BuildSourceFile}",
+                  "ServiceSourceFile": "${ServiceSourceFile}",
+                  "ServiceEnvSourceFile": "${ServiceEnvSourceFile}",
+                  "TestSourceFile": "${TestSourceFile}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+            OutputArtifacts:
+            - Name: "CODEPIPELINE_UNSTABLE_OUTPUT_BUILD"
+            RunOrder: 1
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
+          - NonProdBuild
+          - Name: "Build_CodePipeline"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-codepipeline-${ServiceSubdomain}-${BuildSuffix}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codepipeline/build.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codepipeline/build/main.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "BaseProjectName": "${ProjectName}",
+                  "ProjectName": "${ProjectName}",
+                  "BaseBucketFolder": "${ProjectName}",
+                  "CodeBuildProject": "${ProjectName}-${BuildSuffix}",
+                  "EcrImageTag": "${InitialEnvironment}",
+                  "TagEnvironment": "${BuildSuffix}",
+                  "BuildSourceFile": "${BuildSourceFile}",
+                  "ServiceSourceFile": "${ServiceSourceFile}",
+                  "ServiceEnvSourceFile": "${ServiceEnvSourceFile}",
+                  "TestSourceFile": "${TestSourceFile}",
+                  "RejectCodePipeline": "${ProjectName}-${InitialEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+            OutputArtifacts:
+            - Name: "CODEPIPELINE_OUTPUT_BUILD"
+            RunOrder: 2
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
+          - UnstableEnvironment
+          - Name: !Sub "Deploy_CodePipeline_${UnstableEnvironment}_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-codepipeline-${ServiceSubdomain}-${UnstableEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codepipeline/deploy.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codepipeline/deploy/${UnstableEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "BaseProjectName": "${ProjectName}",
+                  "ProjectName": "${ProjectName}",
+                  "BaseArtifactFolder": "${UnstableBranch}",
+                  "ClusterName": "${ProjectName}",
+                  "CodeBuildAppTestProject": "${ProjectName}-app-test",
+                  "CodeBuildInfrastructureTestProject": "${ProjectName}-infrastructure-test",
+                  "CodeBuildSecurityTestProject": "${ProjectName}-security-test",
+                  "CodeBuildPromoteProject": "${ProjectName}-promote",
+                  "AppBaseFolder": "${AppBaseFolder}",
+                  "EcsRepositoryName": "${EcsRepositoryName}",
+                  "EcrImageTag": "${UnstableBranch}",
+                  "ProdBucket": "${ExternalArtifactBucket}",
+                  "SecondRegion": "${SecondRegion}",
+                  "ServiceSubdomain": "${ServiceSubdomain}",
+                  "ServiceHealthCheckPath": "${ServiceHealthCheckPath}",
+                  "TagEnvironment": "${UnstableEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+            OutputArtifacts:
+            - Name: !Sub "CODEPIPELINE_OUTPUT_${UnstableEnvironment}_PRIMARY_REGION"
+            RunOrder: 3
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
+          - InitialEnvironment
+          - Name: !Sub "Deploy_CodePipeline_${InitialEnvironment}_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-codepipeline-${ServiceSubdomain}-${InitialEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codepipeline/deploy.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codepipeline/deploy/${InitialEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "BaseProjectName": "${ProjectName}",
+                  "ProjectName": "${ProjectName}",
+                  "ClusterName": "${ProjectName}",
+                  "CodeBuildAppTestProject": "${ProjectName}-app-test",
+                  "CodeBuildInfrastructureTestProject": "${ProjectName}-infrastructure-test",
+                  "CodeBuildSecurityTestProject": "${ProjectName}-security-test",
+                  "CodeBuildPromoteProject": "${ProjectName}-promote",
+                  "AppBaseFolder": "${AppBaseFolder}",
+                  "EcsRepositoryName": "${EcsRepositoryName}",
+                  "EcrImageTag": "${InitialEnvironment}",
+                  "ProdBucket": "${ExternalArtifactBucket}",
+                  "SecondRegion": "${SecondRegion}",
+                  "ServiceSubdomain": "${ServiceSubdomain}",
+                  "ServiceHealthCheckPath": "${ServiceHealthCheckPath}",
+                  "TagEnvironment": "${InitialEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+            OutputArtifacts:
+            - Name: !Sub "CODEPIPELINE_OUTPUT_${InitialEnvironment}_PRIMARY_REGION"
+            RunOrder: 4
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
+          - QaEnvironment
+          - Name: !Sub "Deploy_CodePipeline_${QaEnvironment}_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-codepipeline-${ServiceSubdomain}-${QaEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codepipeline/deploy.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codepipeline/deploy/${QaEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "BaseProjectName": "${ProjectName}",
+                  "ProjectName": "${ProjectName}",
+                  "ClusterName": "${ProjectName}",
+                  "CodeBuildAppTestProject": "${ProjectName}-app-test",
+                  "CodeBuildInfrastructureTestProject": "${ProjectName}-infrastructure-test",
+                  "CodeBuildSecurityTestProject": "${ProjectName}-security-test",
+                  "CodeBuildPromoteProject": "${ProjectName}-promote",
+                  "AppBaseFolder": "${AppBaseFolder}",
+                  "ActionMode": "${ServiceActionMode}",
+                  "EcsRepositoryName": "${EcsRepositoryName}",
+                  "EcrImageTag": "${QaEnvironment}",
+                  "ProdBucket": "${ExternalArtifactBucket}",
+                  "SecondRegion": "${SecondRegion}",
+                  "ServiceSubdomain": "${ServiceSubdomain}",
+                  "ServiceHealthCheckPath": "${ServiceHealthCheckPath}",
+                  "TagEnvironment": "${QaEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+            OutputArtifacts:
+            - Name: !Sub "CODEPIPELINE_OUTPUT_${QaEnvironment}_PRIMARY_REGION"
+            RunOrder: 5
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
+          - StageEnvironment
+          - Name: !Sub "Deploy_CodePipeline_${StageEnvironment}_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-codepipeline-${ServiceSubdomain}-${StageEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codepipeline/deploy.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codepipeline/deploy/${StageEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "BaseProjectName": "${ProjectName}",
+                  "ProjectName": "${ProjectName}",
+                  "ClusterName": "${ProjectName}",
+                  "CodeBuildAppTestProject": "${ProjectName}-app-test",
+                  "CodeBuildInfrastructureTestProject": "${ProjectName}-infrastructure-test",
+                  "CodeBuildSecurityTestProject": "${ProjectName}-security-test",
+                  "CodeBuildPromoteProject": "${ProjectName}-promote",
+                  "AppBaseFolder": "${AppBaseFolder}",
+                  "ActionMode": "${ServiceActionMode}",
+                  "EcsRepositoryName": "${EcsRepositoryName}",
+                  "EcrImageTag": "${StageEnvironment}",
+                  "ProdBucket": "${ExternalArtifactBucket}",
+                  "SecondRegion": "${SecondRegion}",
+                  "ServiceSubdomain": "${ServiceSubdomain}",
+                  "ServiceHealthCheckPath": "${ServiceHealthCheckPath}",
+                  "TagEnvironment": "${StageEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+            OutputArtifacts:
+            - Name: !Sub "CODEPIPELINE_OUTPUT_${StageEnvironment}_PRIMARY_REGION"
+            RunOrder: 6
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
+          - ProdEnvironment
+          - Name: !Sub "Deploy_CodePipeline_${ProdEnvironment}_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-codepipeline-${ServiceSubdomain}-${ProdEnvironment}"
+              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codepipeline/deploy.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codepipeline/deploy/${ProdEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "BaseProjectName": "${ProjectName}",
+                  "ProjectName": "${ProjectName}",
+                  "ClusterName": "${ProjectName}",
+                  "CodeBuildAppTestProject": "${ProjectName}-app-test",
+                  "CodeBuildInfrastructureTestProject": "${ProjectName}-infrastructure-test",
+                  "CodeBuildSecurityTestProject": "${ProjectName}-security-test",
+                  "CodeBuildPromoteProject": "${ProjectName}-promote",
+                  "CodeBuildPostProdProject": "${ProjectName}-post-production",
+                  "AppBaseFolder": "${AppBaseFolder}",
+                  "ActionMode": "${ServiceActionMode}",
+                  "EcsRepositoryName": "${EcsRepositoryName}",
+                  "EcrImageTag": "${ProdEnvironment}",
+                  "ProdBucket": "${ExternalArtifactBucket}",
+                  "SecondRegion": "${SecondRegion}",
+                  "ServiceSubdomain": "${ServiceSubdomain}",
+                  "ServiceHealthCheckPath": "${ServiceHealthCheckPath}",
+                  "TagEnvironment": "${ProdEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+            OutputArtifacts:
+            - Name: !Sub "CODEPIPELINE_OUTPUT_${ProdEnvironment}_PRIMARY_REGION"
+            RunOrder: 7
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+      - !If
+        - EnableCustomBuild
+        - Name: "Custom"
+          Actions:
+          - Name: "Custom_Build"
+            ActionTypeId:
+              Category: "Build"
+              Owner: "AWS"
+              Provider: "CodeBuild"
+              Version: "1"
+            Configuration:
+              ProjectName: !Sub "${ProjectName}-custom"
+              PrimarySource: "IAC_SOURCE_FILES"
+              EnvironmentVariables: !Sub |
+                [
+                  {
+                    "name":"AWS_PROD_ACCOUNT_ID",
+                    "value":"${EcrProdAccount}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"AWS_SECOND_REGION",
+                    "value":"${SecondRegion}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"APP_BASE_FOLDER",
+                    "value":"${AppBaseFolder}",
+                    "type":"PLAINTEXT"
+                  },
+                  {
+                    "name":"ECS_REPOSITORY_NAME",
+                    "value":"${EcsRepositoryName}",
+                    "type":"PLAINTEXT"
+                  }
+                ]
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "CUSTOM_BUILD_OUTPUT"
+            RunOrder: 1
+        - !Ref "AWS::NoValue"
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  InfrastructureCodePipelineEventsRuleId:
+    Condition: EnableNotifications
+    Description: "The ID of the infrastructure CodePipeline events rule."
+    Value: !Ref InfrastructureCodePipelineEventsRule
+    Export:
+      Name: !Sub "${AWS::StackName}-InfrastructureCodePipelineEventsRuleId"
+  InfrastructureCodePipelineEventsRuleArn:
+    Condition: EnableNotifications
+    Description: "The ARN of the infrastructure CodePipeline events rule."
+    Value: !GetAtt InfrastructureCodePipelineEventsRule.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-InfrastructureCodePipelineEventsRuleArn"
+  InfrastructureCodePipelineName:
+    Description: "The name of the infrastructure CodePipeline."
+    Value: !Ref InfrastructureCodePipeline
+    Export:
+      Name: !Sub "${AWS::StackName}-InfrastructureCodePipelineName"
+  InfrastructureCodePipelineVersion:
+    Description: "The version of the infrastructure CodePipeline."
+    Value: !GetAtt InfrastructureCodePipeline.Version
+    Export:
+      Name: !Sub "${AWS::StackName}-InfrastructureCodePipelineVersion"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+      - SecondRegion
+    - Label:
+        default: "CodePipeline Configuration"
+      Parameters:
+      - ProjectName
+      - InfrastructureSuffix
+      - BuildSuffix
+      - AppBaseFolder
+      - ActionMode
+      - ServiceActionMode
+      - EnableManualApproval
+      - EnableCustomBuild
+      - EnableCdn
+      - EnableWafCidrRestrictions
+      - UnstableEnvironment
+      - InitialEnvironment
+      - QaEnvironment
+      - StageEnvironment
+      - ProdEnvironment
+    - Label:
+        default: "Manual Approval Configuration"
+      Parameters:
+      - ApprovalMessagePrefix
+      - ApprovalEnvironment
+      - ApprovalMessageSuffix
+    - Label:
+        default: "CodePipeline Notification Configuration"
+      Parameters:
+      - EnableNotifications
+      - SlackNotificationLambda
+    - Label:
+        default: "Source Configuration"
+      Parameters:
+      - GitHubOAuthTokenName
+      - DockerHubUsernameKey
+      - DockerHubTokenKey
+      - UnstableBranch
+    - Label:
+        default: "ECS Repository (ECR) Configuration"
+      Parameters:
+      - EcsRepositoryName
+      - EcrNonProdAccount
+      - EcrProdAccount
+      - EcrNonProdImageCount
+      - EcrProdImageCount
+    - Label:
+        default: "ZIP File Configuration"
+      Parameters:
+      - ExternalArtifactBucket
+      - BuildSourceFile
+      - InfrastructureSourceFile
+      - TestSourceFile
+      - ServiceSourceFile
+    - Label:
+        default: "Service Configuration"
+      Parameters:
+      - ServiceSubdomain
+      - ServiceHealthCheckPath
+    - Label:
+        default: "Tags"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      # General Configuration
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      SecondRegion:
+        default: "Second Region:"
+      # CodePipeline Configuration
+      ProjectName:
+        default: "CodePipeline Project Name:"
+      InfrastructureSuffix:
+        default: "Infrastructure Suffix:"
+      BuildSuffix:
+        default: "Build Suffix:"
+      AppBaseFolder:
+        default: "CodePipeline Application Base Folder:"
+      ActionMode:
+        default: "CodePipeline CloudFormation Action Mode:"
+      ServiceActionMode:
+        default: "Service CloudFormation Action Mode:"
+      # Special Feature Configuration
+      EnableManualApproval:
+        default: "Enable Manual Approval:"
+      EnableCustomBuild:
+        default: "Enable Custom Build:"
+      EnableCdn:
+        default: "Enable CDN Base Infrastructure:"
+      EnableWafCidrRestrictions:
+        default: "Enable WAF CIDR Block Restrictions:"
+      # Manual Approval Configuration
+      ApprovalMessagePrefix:
+        default: "Approval Message Prefix:"
+      ApprovalEnvironment:
+        default: "Approval Environment:"
+      ApprovalMessageSuffix:
+        default: "Approval Message Suffix:"
+      # Environment Configuration
+      UnstableEnvironment:
+        default: "Unstable Environment"
+      InitialEnvironment:
+        default: "Initial Environment:"
+      QaEnvironment:
+        default: "QA Environment:"
+      StageEnvironment:
+        default: "Stage Environment:"
+      ProdEnvironment:
+        default: "Production Environment:"
+      # CodePipeline Notification Configuration
+      EnableNotifications:
+        default: "Enable E-mail and Slack Notifications:"
+      SlackNotificationLambda:
+        default: "Slack Notification Lambda Name:"
+      # Source Configuration
+      DockerHubUsernameKey:
+        default: "DockerHub Username:"
+      DockerHubTokenKey:
+        default: "DockerHub Token:"
+      GitHubOAuthTokenName:
+        default: "GitHub OAuth Token Name:"
+      UnstableBranch:
+        default: "Unstable GitHub Environment Branch:"
+      # ECS Configuration
+      EcsRepositoryName:
+        default: "ECS Repository:"
+      EcrNonProdAccount:
+        default: "ECR Non-Prod Account:"
+      EcrProdAccount:
+        default: "ECR Production Account:"
+      EcrNonProdImageCount:
+        default: "ECR Non-Prod Image Count:"
+      EcrProdImageCount:
+        default: "ECR Prod Image Count:"
+      # ZIP Configuration
+      ExternalArtifactBucket:
+        default: "External Artifact Bucket Name:"
+      BuildSourceFile:
+        default: "Build Source ZIP File:"
+      InfrastructureSourceFile:
+        default: "Infrastructure Source ZIP File:"
+      TestSourceFile:
+        default: "Test Source ZIP File:"
+      ServiceSourceFile:
+        default: "Service Source ZIP File:"
+      # Service Configuration
+      ServiceSubdomain:
+        default: "Service Subdomain:"
+      ServiceHealthCheckPath:
+        default: "Service Health Check Path:"
+      # Tags
+      TagEnvironment:
+        default: "Environment:"

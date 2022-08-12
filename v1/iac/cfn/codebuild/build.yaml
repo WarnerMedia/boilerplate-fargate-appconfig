@@ -1,0 +1,266 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create the CodeBuild needed to build this service - (v1.1.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  AppBaseFolder:
+    Type: "String"
+    Description: "The base repository folder for the application."
+    Default: "v1"
+  EcrProdAccount:
+    Type: "String"
+    Description: "The Account ID for the non-prod account."
+    Default: "222221111111"
+  ProjectName:
+    Type: "String"
+    Description: "The base name of the CodePipeline project (e.g. foo-bar-baz)."
+    Default: "boilerplate-fargate-nodejs"
+  SecondRegion:
+    Type: "String"
+    Description: "What is the second region this service should be deployed to?"
+    AllowedValues:
+    - "NONE"
+    - "us-east-1"
+    - "us-east-2"
+    - "us-west-2"
+    Default: "us-east-2"
+  # CodeBuild Configuration
+  CodeBuildRoleArn:
+    Type: "String"
+    Description: "The ARN of the CodeBuild Role."
+  CodeBuildSpecPath:
+    Type: "String"
+    Description: "The path and file name for the main BuildSpec file."
+    Default: "build/aws/codebuild/buildspec/build/amzn2.yaml"
+  CodeBuildGitHubOAuthTokenName:
+    Type: "String"
+    Description: "This is the name and key of the Secrets Manager secret which contains the GitHub OAuth token for source repository access."
+  DockerHubUsernameKey:
+    Type: "String"
+    Description: "This is the name and key of the Secrets Manager secret which contains the username for Docker Hub access."
+  DockerHubTokenKey:
+    Type: "String"
+    Description: "This is the name and key of the Secrets Manager secret which contains the access token for Docker Hub access."
+  CodeBuildComputeType:
+    Type: "String"
+    Description: "The amount of compute needed for this project (Small: 3GB/2CPU, Medium: 7GB/4CPU, Large: 15GB/8CPU, 2X Large: 145GB/72CPU)?"
+    AllowedValues:
+    - "BUILD_GENERAL1_SMALL"
+    - "BUILD_GENERAL1_MEDIUM"
+    - "BUILD_GENERAL1_LARGE"
+    - "BUILD_GENERAL1_2XLARGE"
+    Default: "BUILD_GENERAL1_SMALL"
+  CodeBuildDockerImage:
+    Type: "String"
+    Description: "Which Docker version do you want to use? For other images/runtimes, try to create a project through the interface."
+    AllowedValues:
+    - "aws/codebuild/amazonlinux2-x86_64-standard:1.0"
+    - "aws/codebuild/amazonlinux2-x86_64-standard:2.0"
+    - "aws/codebuild/amazonlinux2-x86_64-standard:3.0"
+    - "aws/codebuild/standard:1.0"
+    - "aws/codebuild/standard:2.0"
+    - "aws/codebuild/standard:3.0"
+    - "aws/codebuild/standard:4.0"
+    Default: "aws/codebuild/amazonlinux2-x86_64-standard:3.0"
+  CodeBuildTimeoutInMinutes:
+    Type: "Number"
+    Default: 10
+  CodeBuildUnstableBranch:
+    Type: "String"
+    Description: "The branch name for the unstable (stub) environment."
+    Default: "NONE"
+  # ECR Configuration
+  EcsRepositoryName:
+    Type: "String"
+    Description: "The base name of the ECS Repository (e.g. boilerplate/foo). The environment will automatically be added to the end."
+    Default: "boilerplate/fargate-nodejs"
+  # Approval Configuration
+  AutomaticReject:
+    Type: "String"
+    Description: "Should we automatically reject a pending approval for the initial deployment CodePipeline?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "No"
+  PrereleaseEnvironment:
+    Type: "String"
+    Description: "Which environment should get tagged for pre-release?"
+    Default: "qa"
+  ReleaseEnvironment:
+    Type: "String"
+    Description: "Which environment should get tagged for pre-release?"
+    Default: "prod"
+  # Tags
+  TagEnvironment:
+    Type: "String"
+    Description: "What is the environment tag?"
+    AllowedValues:
+    - "build"
+    Default: "build"
+Conditions:
+  AppBaseFolder: !Not [ !Equals [ !Ref AppBaseFolder, "" ] ]
+Resources:
+  CodeBuildProject:
+    Type: "AWS::CodeBuild::Project"
+    Properties:
+      Name: !Ref ProjectName
+      Cache:
+        Type: "LOCAL"
+        Location: "LOCAL"
+        Modes:
+        - "LOCAL_DOCKER_LAYER_CACHE"
+        - "LOCAL_SOURCE_CACHE"
+      Environment:
+        ComputeType: !Ref CodeBuildComputeType
+        EnvironmentVariables:
+        - Name: "AUTOMATIC_REJECT"
+          Value: !Ref AutomaticReject
+        - Name: "APP_BASE_FOLDER"
+          Value: !Ref AppBaseFolder
+        - Name: "AWS_ACCOUNT_ID"
+          Value: !Ref "AWS::AccountId"
+        - Name: "AWS_ECR_PROD_ACCOUNT_ID"
+          Value: !Ref EcrProdAccount
+        - Name: "AWS_SECOND_REGION"
+          Value: !Ref SecondRegion
+        - Name: "DOCKERHUB_USERNAME_KEY"
+          Value: !Ref DockerHubUsernameKey
+        - Name: "DOCKERHUB_TOKEN_KEY"
+          Value: !Ref DockerHubTokenKey
+        - Name: "GITHUB_OAUTH_TOKEN_NAME"
+          Value: !Ref CodeBuildGitHubOAuthTokenName
+        - Name: "IMAGE_REPO_NAME"
+          Value: !Ref EcsRepositoryName
+        - Name: "PRERELEASE_ENV"
+          Value: !Ref PrereleaseEnvironment
+        - Name: "RELEASE_ENV"
+          Value: !Ref ReleaseEnvironment
+        - Name: "S3_ARTIFACT_BUCKET"
+          Value: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/artifact/name}}"
+        - Name: "UNSTABLE_BRANCH"
+          Value: !Ref CodeBuildUnstableBranch
+        Image: !Ref CodeBuildDockerImage
+        PrivilegedMode: true
+        Type: "LINUX_CONTAINER"
+      TimeoutInMinutes: !Ref CodeBuildTimeoutInMinutes
+      Source:
+        BuildSpec: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/${CodeBuildSpecPath}", !Ref CodeBuildSpecPath ]
+        Type: "CODEPIPELINE"
+      ServiceRole: !Ref CodeBuildRoleArn
+      Artifacts:
+        Type: "CODEPIPELINE"
+      VpcConfig:
+        VpcId: !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/id}}"
+        SecurityGroupIds:
+        - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/security-group/codebuild/general/id}}"
+        Subnets:
+        - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/one}}"
+        - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/two}}"
+        - !Sub "{{resolve:ssm:/vpc/${InfrastructureName}/subnet/private/zone/three}}"
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  CodeBuild:
+    Description: "The CodeBuild project created."
+    Value: !Ref CodeBuildProject
+    Export:
+      Name: !Sub "${AWS::StackName}-CodeBuild"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+    - Label:
+        default: "CodePipeline Configuration"
+      Parameters:
+      - AppBaseFolder
+      - EcrProdAccount
+      - ProjectName
+      - SecondRegion
+    - Label:
+        default: "ECS Repository (ECR) Configuration"
+      Parameters:
+      - EcsRepositoryName
+    - Label:
+        default: "CodeBuild Configuration"
+      Parameters:
+      - CodeBuildRoleArn
+      - CodeBuildSpecPath
+      - CodeBuildGitHubOAuthTokenName
+      - CodeBuildComputeType
+      - CodeBuildDockerImage
+      - CodeBuildTimeoutInMinutes
+      - CodeBuildUnstableBranch
+      - DockerHubUsernameKey
+      - DockerHubTokenKey
+    - Label:
+        default: "Approval Configuration"
+      Parameters:
+      - AutomaticReject
+      - PrereleaseEnvironment
+      - ReleaseEnvironment
+    - Label:
+        default: "Tags"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      # General Configuration
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      # CodePipeline Configuration
+      AppBaseFolder:
+        default: "CodePipeline Application Base Folder:"
+      EcrProdAccount:
+        default: "ECR Production Account:"
+      ProjectName:
+        default: "CodePipeline Project Name:"
+      SecondRegion:
+        default: "Second Region:"
+      # ECS Configuration
+      EcsRepositoryName:
+        default: "ECS Repository:"
+      # CodeBuild Configuration
+      CodeBuildRoleArn:
+        default: "CodeBuild Role ARN:"
+      CodeBuildSpecPath:
+        default: "CodeBuild Main BuildSpec Path:"
+      CodeBuildGitHubOAuthTokenName:
+        default: "GitHub OAuth Token Name:"
+      CodeBuildComputeType:
+        default: "CodeBuild Compute Type:"
+      CodeBuildDockerImage:
+        default: "CodeBuild Docker Image:"
+      CodeBuildTimeoutInMinutes:
+        default: "CodeBuild Timeout (in Minutes):"
+      CodeBuildUnstableBranch:
+        default: "CodeBuild Unstable Environment Branch:"
+      DockerHubUsernameKey:
+        default: "DockerHub Username:"
+      DockerHubTokenKey:
+        default: "DockerHub Token:"
+      # Approval Configuration
+      AutomaticReject:
+        default: "Automatically Reject:"
+      PrereleaseEnvironment:
+        default: "Pre-Release Environment:"
+      ReleaseEnvironment:
+        default: "Pre-Release Environment:"
+      # Tags
+      TagEnvironment:
+        default: "Environment:"

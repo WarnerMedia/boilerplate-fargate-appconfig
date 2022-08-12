@@ -1,0 +1,6 @@
+{
+  "Parameters": {
+    "EnvName1": "APPLICATION_TITLE",
+    "EnvValue1": "Fargate Quality Assurance Application"
+  }
+}

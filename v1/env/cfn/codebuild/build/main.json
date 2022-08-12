@@ -1,0 +1,7 @@
+{
+  "Parameters": {
+    "AutomaticReject": "Yes",
+    "CodeBuildDockerImage": "aws/codebuild/amazonlinux2-x86_64-standard:3.0",
+    "CodeBuildSpecPath": "build/aws/codebuild/buildspec/build/amzn2.yaml"
+  }
+}
