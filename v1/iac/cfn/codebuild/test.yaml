@@ -10,7 +10,7 @@ Parameters:
   ProjectName:
     Type: "String"
     Description: "The base name of the CodePipeline project (e.g. foo-bar-baz)."
-    Default: "boilerplate-fargate-nodejs"
+    Default: "boilerplate-fargate-appconfig"
   AppBaseFolder:
     Type: "String"
     Description: "The base repository folder for the application."

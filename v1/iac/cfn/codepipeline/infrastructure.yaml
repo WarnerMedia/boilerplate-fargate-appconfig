@@ -19,7 +19,7 @@ Parameters:
   ProjectName:
     Type: "String"
     Description: "The base name of the CodePipeline project (e.g. foo-bar-baz)."
-    Default: "boilerplate-fargate-nodejs"
+    Default: "boilerplate-fargate-appconfig"
   InfrastructureSuffix:
     Type: "String"
     Description: "The suffix to add to the infrastructure CodePipeline."
@@ -52,6 +52,10 @@ Parameters:
     - "DELETE_ONLY"
     - "REPLACE_ON_FAILURE"
     Default: "REPLACE_ON_FAILURE"
+  CloudFormationCapabilities:
+    Type: "String"
+    Description: "A list of the capabilities that CloudFormation should have when executing stacks via CodePipeline."
+    Default: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
   # Manual Approval Configuration
   ApprovalMessagePrefix:
     Type: "String"
@@ -76,6 +80,20 @@ Parameters:
   EnableCustomBuild:
     Type: "String"
     Description: "Enable custom command CodeBuild (for running any needed custom commands)."
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  EnableAppConfig:
+    Type: "String"
+    Description: "Enable AppConfig Profile."
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  EnableFeatureFlag:
+    Type: "String"
+    Description: "Enable AppConfig Feature Flags."
     AllowedValues:
     - "Yes"
     - "No"
@@ -194,11 +212,16 @@ Parameters:
   ServiceSubdomain:
     Type: "String"
     Description: "What is the base name for the DNS entry? The environment will automatically be added to the end."
-    Default: "boilerplate-fargate-nodejs"
+    Default: "boilerplate-fargate-appconfig"
   ServiceHealthCheckPath:
     Type: "String"
     Description: "What is the path of the health check?"
     Default: "/hc/"
+  # AppConfig Configuration
+  ApplicationDescription:
+    Type: "String"
+    Description: "The description of the application."
+    Default: "Boilerplate Application"
   # Tags
   TagEnvironment:
     Type: "String"
@@ -211,6 +234,8 @@ Conditions:
   AppBaseFolder: !Not [ !Equals [ !Ref AppBaseFolder, "" ] ]
   EnableCdn: !Equals [ !Ref EnableCdn, "Yes" ]
   EnableCustomBuild: !Equals [ !Ref EnableCustomBuild, "Yes" ]
+  EnableAppConfig: !Equals [ !Ref EnableAppConfig, "Yes" ]
+  EnableFeatureFlag: !Equals [ !Ref EnableFeatureFlag, "Yes" ]
   EnableManualApproval: !Equals [ !Ref EnableManualApproval, "Yes" ]
   EnableNotifications: !Equals [ !Ref EnableNotifications, "Yes" ]
   EnableWafCidrRestrictions: !Equals [ !Ref EnableWafCidrRestrictions, "Yes" ]
@@ -306,6 +331,10 @@ Resources:
             - "iam:UpdateAssumeRolePolicy"
             - "iam:UpdateRole"
             - "iam:UpdateRoleDescription"
+            Resource: "*"
+          - Effect: "Allow"
+            Action:
+            - "appconfig:*"
             Resource: "*"
           - Effect: "Allow"
             Action:
@@ -450,7 +479,7 @@ Resources:
           Configuration:
             ActionMode: !Ref ActionMode
             StackName: !Sub "${InfrastructureName}-codebuild-role-${ServiceSubdomain}-${TagEnvironment}"
-            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            Capabilities: !Ref CloudFormationCapabilities
             TemplatePath:
               Fn::Sub:
               - "IAC_SOURCE_FILES::${Folder}iac/cfn/iam/role/codebuild/standard.yaml"
@@ -482,7 +511,7 @@ Resources:
           Configuration:
             ActionMode: !Ref ActionMode
             StackName: !Sub "${InfrastructureName}-codepipeline-build-role-${ServiceSubdomain}-${TagEnvironment}"
-            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            Capabilities: !Ref CloudFormationCapabilities
             TemplatePath:
               Fn::Sub:
               - "IAC_SOURCE_FILES::${Folder}iac/cfn/iam/role/codepipeline/build.yaml"
@@ -513,7 +542,7 @@ Resources:
           Configuration:
             ActionMode: !Ref ActionMode
             StackName: !Sub "${InfrastructureName}-codepipeline-deploy-role-${ServiceSubdomain}-${TagEnvironment}"
-            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            Capabilities: !Ref CloudFormationCapabilities
             TemplatePath:
               Fn::Sub:
               - "IAC_SOURCE_FILES::${Folder}iac/cfn/iam/role/codepipeline/deploy.yaml"
@@ -546,7 +575,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-codebuild-role-${ServiceSubdomain}-${TagEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/iam/role/codebuild/standard.yaml"
@@ -580,7 +609,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-codepipeline-build-role-${ServiceSubdomain}-${TagEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/iam/role/codepipeline/build.yaml"
@@ -614,7 +643,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-codepipeline-deploy-role-${ServiceSubdomain}-${TagEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/iam/role/codepipeline/deploy.yaml"
@@ -648,7 +677,7 @@ Resources:
           Configuration:
             ActionMode: !Ref ActionMode
             StackName: !Sub "${InfrastructureName}-ecr-${ServiceSubdomain}-${TagEnvironment}"
-            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            Capabilities: !Ref CloudFormationCapabilities
             TemplatePath:
               Fn::Sub:
               - "IAC_SOURCE_FILES::${Folder}iac/cfn/ecr/repository.yaml"
@@ -687,7 +716,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-ecr-${ServiceSubdomain}-${TagEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/ecr/repository.yaml"
@@ -727,7 +756,7 @@ Resources:
           Configuration:
             ActionMode: !Ref ActionMode
             StackName: !Sub "${InfrastructureName}-ecs-cluster-${ServiceSubdomain}-${TagEnvironment}"
-            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            Capabilities: !Ref CloudFormationCapabilities
             TemplatePath:
               Fn::Sub:
               - "IAC_SOURCE_FILES::${Folder}iac/cfn/cluster/fargate.yaml"
@@ -761,7 +790,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-ecs-cluster-${ServiceSubdomain}-${TagEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/cluster/fargate.yaml"
@@ -798,7 +827,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-cloudfront-secrets-${ServiceSubdomain}-${TagEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/cloudfront.yaml"
@@ -834,7 +863,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-promote-codebuild-${ServiceSubdomain}-${TagEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/build.yaml"
@@ -876,7 +905,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-post-production-codebuild-${ServiceSubdomain}-${TagEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/build.yaml"
@@ -918,7 +947,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-${UnstableEnvironment}-${BuildSuffix}-codebuild-${ServiceSubdomain}-${TagEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/build.yaml"
@@ -962,7 +991,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-${BuildSuffix}-codebuild-${ServiceSubdomain}-${TagEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/build.yaml"
@@ -1006,7 +1035,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-custom-codebuild-${ServiceSubdomain}-${TagEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/build.yaml"
@@ -1046,7 +1075,7 @@ Resources:
           Configuration:
             ActionMode: !Ref ActionMode
             StackName: !Sub "${InfrastructureName}-app-test-codebuild-${ServiceSubdomain}-${TagEnvironment}"
-            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            Capabilities: !Ref CloudFormationCapabilities
             TemplatePath:
               Fn::Sub:
               - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/test.yaml"
@@ -1086,7 +1115,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-app-test-codebuild-${ServiceSubdomain}-${TagEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/test.yaml"
@@ -1125,7 +1154,7 @@ Resources:
           Configuration:
             ActionMode: !Ref ActionMode
             StackName: !Sub "${InfrastructureName}-infrastructure-test-codebuild-${ServiceSubdomain}-${TagEnvironment}"
-            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            Capabilities: !Ref CloudFormationCapabilities
             TemplatePath:
               Fn::Sub:
               - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/test.yaml"
@@ -1165,7 +1194,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-infrastructure-test-codebuild-${ServiceSubdomain}-${TagEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/test.yaml"
@@ -1204,7 +1233,7 @@ Resources:
           Configuration:
             ActionMode: !Ref ActionMode
             StackName: !Sub "${InfrastructureName}-security-test-codebuild-${ServiceSubdomain}-${TagEnvironment}"
-            Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+            Capabilities: !Ref CloudFormationCapabilities
             TemplatePath:
               Fn::Sub:
               - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/test.yaml"
@@ -1244,7 +1273,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-security-test-codebuild-${ServiceSubdomain}-${TagEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/test.yaml"
@@ -1287,7 +1316,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${UnstableEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
@@ -1322,7 +1351,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${UnstableEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
@@ -1357,7 +1386,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${InitialEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
@@ -1392,7 +1421,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${InitialEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
@@ -1427,7 +1456,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${QaEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
@@ -1462,7 +1491,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${QaEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
@@ -1497,7 +1526,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${StageEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
@@ -1532,7 +1561,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${StageEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
@@ -1567,7 +1596,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${ProdEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
@@ -1602,7 +1631,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-secrets-${ServiceSubdomain}-${ProdEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/secrets-manager/service.yaml"
@@ -1639,7 +1668,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-cloudfront-waf-${ServiceSubdomain}-${TagEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               # Because of how WAF rules work, it makes sense to split into two separate templates to reduce the chance of the WAF being replaced instead of updated.
               TemplatePath:
                 Fn::Sub:
@@ -1665,6 +1694,891 @@ Resources:
             RunOrder: 1
             Region: "us-east-1"
         - !Ref "AWS::NoValue"
+
+      # Appconfig Feature Flag Application Configuration
+
+      - !If
+        - EnableFeatureFlag
+        - Name: "AppConfig_Feature_Flag_Applications"
+          Actions:
+          - Name: "AppConfig_Feature_Flag_Application_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-application-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: !Ref CloudFormationCapabilities
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/application.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/feature-flag/${TagEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ApplicationName": "${ProjectName}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "APPCONFIG_FEATURE_FLAG_APPLICATION_PRIMARY_REGION"
+            RunOrder: 1
+            Region: !Ref "AWS::Region"
+          - !If
+            - SecondRegion
+            - Name: "AppConfig_Feature_Flag_Application_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-application-${ServiceSubdomain}-${TagEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/application.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/feature-flag/${TagEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: "APPCONFIG_FEATURE_FLAG_APPLICATION_SECONDARY_REGION"
+              RunOrder: 1
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+        - !Ref "AWS::NoValue"
+
+      # Appconfig Feature Flag Environments Configuration
+
+      - !If
+        - EnableFeatureFlag
+        - Name: "AppConfig_Feature_Flag_Environments"
+          Actions:
+          - !If
+            - UnstableEnvironment
+            - Name: !Sub "AppConfig_${UnstableEnvironment}_Feature_Flag_Environment_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-environment-${ServiceSubdomain}-${UnstableEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/feature-flag/${UnstableEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${UnstableEnvironment})",
+                    "TagEnvironment": "${UnstableEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${UnstableEnvironment}_FEATURE_FLAG_ENVIRONMENT_PRIMARY_REGION"
+              RunOrder: 1
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - UnstableEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${UnstableEnvironment}_Feature_Flag_Environment_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-environment-${ServiceSubdomain}-${UnstableEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/feature-flag/${UnstableEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${UnstableEnvironment})",
+                    "TagEnvironment": "${UnstableEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${UnstableEnvironment}_FEATURE_FLAG_ENVIRONMENT_SECONDARY_REGION"
+              RunOrder: 1
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - InitialEnvironment
+            - Name: !Sub "AppConfig_${InitialEnvironment}_Feature_Flag_Environment_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-environment-${ServiceSubdomain}-${InitialEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/feature-flag/${InitialEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${InitialEnvironment})",
+                    "TagEnvironment": "${InitialEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${InitialEnvironment}_FEATURE_FLAG_ENVIRONMENT_PRIMARY_REGION"
+              RunOrder: 2
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - InitialEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${InitialEnvironment}_Feature_Flag_Environment_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-environment-${ServiceSubdomain}-${InitialEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/feature-flag/${InitialEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${InitialEnvironment})",
+                    "TagEnvironment": "${InitialEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${InitialEnvironment}_FEATURE_FLAG_ENVIRONMENT_SECONDARY_REGION"
+              RunOrder: 2
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - QaEnvironment
+            - Name: !Sub "AppConfig_${QaEnvironment}_Feature_Flag_Environment_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-environment-${ServiceSubdomain}-${QaEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/feature-flag/${QaEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${QaEnvironment})",
+                    "TagEnvironment": "${QaEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${QaEnvironment}_FEATURE_FLAG_ENVIRONMENT_PRIMARY_REGION"
+              RunOrder: 3
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - QaEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${QaEnvironment}_Feature_Flag_Environment_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-environment-${ServiceSubdomain}-${QaEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/feature-flag/${QaEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${QaEnvironment})",
+                    "TagEnvironment": "${QaEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${QaEnvironment}_FEATURE_FLAG_ENVIRONMENT_SECONDARY_REGION"
+              RunOrder: 3
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - StageEnvironment
+            - Name: !Sub "AppConfig_${StageEnvironment}_Feature_Flag_Environment_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-environment-${ServiceSubdomain}-${StageEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/feature-flag/${StageEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${StageEnvironment})",
+                    "TagEnvironment": "${StageEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${StageEnvironment}_FEATURE_FLAG_ENVIRONMENT_PRIMARY_REGION"
+              RunOrder: 4
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - StageEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${StageEnvironment}_Feature_Flag_Environment_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-environment-${ServiceSubdomain}-${StageEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/feature-flag/${StageEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${StageEnvironment})",
+                    "TagEnvironment": "${StageEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${StageEnvironment}_FEATURE_FLAG_ENVIRONMENT_SECONDARY_REGION"
+              RunOrder: 4
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - ProdEnvironment
+            - Name: !Sub "AppConfig_${ProdEnvironment}_Feature_Flag_Environment_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-environment-${ServiceSubdomain}-${ProdEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/feature-flag/${ProdEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${ProdEnvironment})",
+                    "TagEnvironment": "${ProdEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${ProdEnvironment}_FEATURE_FLAG_ENVIRONMENT_PRIMARY_REGION"
+              RunOrder: 5
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - ProdEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${ProdEnvironment}_Feature_Flag_Environment_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-environment-${ServiceSubdomain}-${ProdEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/feature-flag/${ProdEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${ProdEnvironment})",
+                    "TagEnvironment": "${ProdEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${ProdEnvironment}_FEATURE_FLAG_ENVIRONMENT_SECONDARY_REGION"
+              RunOrder: 5
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+        - !Ref "AWS::NoValue"
+
+      # Appconfig Feature Flag Profiles Configuration
+
+      - !If
+        - EnableFeatureFlag
+        - Name: "AppConfig_Feature_Flag_Configuration_Profiles"
+          Actions:
+          - !If
+            - UnstableEnvironment
+            - Name: !Sub "AppConfig_${UnstableEnvironment}_Feature_Flag_Configuration_Profile_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-configuration-profile-${ServiceSubdomain}-${UnstableEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/feature-flag/${UnstableEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${UnstableEnvironment})",
+                    "TagEnvironment": "${UnstableEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${UnstableEnvironment}_FEATURE_FLAG_CONFIGURATION_PROFILE_PRIMARY_REGION"
+              RunOrder: 1
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - UnstableEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${UnstableEnvironment}_Feature_Flag_Configuration_Profile_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-configuration-profile-${ServiceSubdomain}-${UnstableEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/feature-flag/${UnstableEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${UnstableEnvironment})",
+                    "TagEnvironment": "${UnstableEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${UnstableEnvironment}_FEATURE_FLAG_CONFIGURATION_PROFILE_SECONDARY_REGION"
+              RunOrder: 1
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - InitialEnvironment
+            - Name: !Sub "AppConfig_${InitialEnvironment}_Feature_Flag_Configuration_Profile_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-configuration-profile-${ServiceSubdomain}-${InitialEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/feature-flag/${InitialEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${InitialEnvironment})",
+                    "TagEnvironment": "${InitialEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${InitialEnvironment}_FEATURE_FLAG_CONFIGURATION_PROFILE_PRIMARY_REGION"
+              RunOrder: 2
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - InitialEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${InitialEnvironment}_Feature_Flag_Configuration_Profile_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-configuration-profile-${ServiceSubdomain}-${InitialEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/feature-flag/${InitialEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${InitialEnvironment})",
+                    "TagEnvironment": "${InitialEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${InitialEnvironment}_FEATURE_FLAG_CONFIGURATION_PROFILE_SECONDARY_REGION"
+              RunOrder: 2
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - QaEnvironment
+            - Name: !Sub "AppConfig_${QaEnvironment}_Feature_Flag_Configuration_Profile_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-configuration-profile-${ServiceSubdomain}-${QaEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/feature-flag/${QaEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${QaEnvironment})",
+                    "TagEnvironment": "${QaEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${QaEnvironment}_FEATURE_FLAG_CONFIGURATION_PROFILE_PRIMARY_REGION"
+              RunOrder: 3
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - QaEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${QaEnvironment}_Feature_Flag_Configuration_Profile_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-configuration-profile-${ServiceSubdomain}-${QaEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/feature-flag/${QaEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${QaEnvironment})",
+                    "TagEnvironment": "${QaEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${QaEnvironment}_FEATURE_FLAG_CONFIGURATION_PROFILE_SECONDARY_REGION"
+              RunOrder: 3
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - StageEnvironment
+            - Name: !Sub "AppConfig_${StageEnvironment}_Feature_Flag_Configuration_Profile_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-configuration-profile-${ServiceSubdomain}-${StageEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/feature-flag/${StageEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${StageEnvironment})",
+                    "TagEnvironment": "${StageEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${StageEnvironment}_FEATURE_FLAG_CONFIGURATION_PROFILE_PRIMARY_REGION"
+              RunOrder: 4
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - StageEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${StageEnvironment}_Feature_Flag_Configuration_Profile_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-configuration-profile-${ServiceSubdomain}-${StageEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/feature-flag/${StageEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${StageEnvironment})",
+                    "TagEnvironment": "${StageEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${StageEnvironment}_FEATURE_FLAG_CONFIGURATION_PROFILE_SECONDARY_REGION"
+              RunOrder: 4
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - ProdEnvironment
+            - Name: !Sub "AppConfig_${ProdEnvironment}_Feature_Flag_Configuration_Profile_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-configuration-profile-${ServiceSubdomain}-${ProdEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/feature-flag/${ProdEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${ProdEnvironment})",
+                    "TagEnvironment": "${ProdEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${ProdEnvironment}_FEATURE_FLAG_CONFIGURATION_PROFILE_PRIMARY_REGION"
+              RunOrder: 5
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - ProdEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${ProdEnvironment}_Feature_Flag_Configuration_Profile_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-configuration-profile-${ServiceSubdomain}-${ProdEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/feature-flag/${ProdEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${ProdEnvironment})",
+                    "TagEnvironment": "${ProdEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${ProdEnvironment}_FEATURE_FLAG_CONFIGURATION_PROFILE_SECONDARY_REGION"
+              RunOrder: 5
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+        - !Ref "AWS::NoValue"
+
+      # AppConfig Feature Flag Deployment Strategies Configuration
+
+      - !If
+        - EnableFeatureFlag
+        - Name: "AppConfig_Feature_Flag_Deployment_Strategies"
+          Actions:
+          - Name: "AppConfig_Feature_Flag_Deployment_Strategy_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-deployment-strategy-${ServiceSubdomain}-${ProdEnvironment}"
+              Capabilities: !Ref CloudFormationCapabilities
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/deployment-strategy.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/deployment-strategy/feature-flag/${TagEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ApplicationName": "${ProjectName}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "APPCONFIG_FEATURE_FLAG_DEPLOYMENT_STRATEGY_PRIMARY_REGION"
+            RunOrder: 1
+            Region: !Ref "AWS::Region"
+          - !If
+            - SecondRegion
+            - Name: "AppConfig_Feature_Flag_Deployment_Strategy_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-deployment-strategy-${ServiceSubdomain}-${ProdEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/deployment-strategy.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/deployment-strategy/feature-flag/${TagEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: "APPCONFIG_FEATURE_FLAG_DEPLOYMENT_STRATEGY_SECONDARY_REGION"
+              RunOrder: 1
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+        - !Ref "AWS::NoValue"
+
+      # Application Deployment Configuration
+
       - Name: "Application_Deployment"
         Actions:
         - !If
@@ -1678,7 +2592,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-codepipeline-${ServiceSubdomain}-${BuildSuffix}-${UnstableEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/codepipeline/build.yaml"
@@ -1723,7 +2637,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-codepipeline-${ServiceSubdomain}-${BuildSuffix}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/codepipeline/build.yaml"
@@ -1768,7 +2682,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-codepipeline-${ServiceSubdomain}-${UnstableEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/codepipeline/deploy.yaml"
@@ -1818,7 +2732,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-codepipeline-${ServiceSubdomain}-${InitialEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/codepipeline/deploy.yaml"
@@ -1867,7 +2781,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-codepipeline-${ServiceSubdomain}-${QaEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/codepipeline/deploy.yaml"
@@ -1917,7 +2831,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-codepipeline-${ServiceSubdomain}-${StageEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/codepipeline/deploy.yaml"
@@ -1967,7 +2881,7 @@ Resources:
             Configuration:
               ActionMode: !Ref ActionMode
               StackName: !Sub "${InfrastructureName}-codepipeline-${ServiceSubdomain}-${ProdEnvironment}"
-              Capabilities: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
+              Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
                 - "IAC_SOURCE_FILES::${Folder}iac/cfn/codepipeline/deploy.yaml"
@@ -2102,6 +3016,7 @@ Metadata:
       - AppBaseFolder
       - ActionMode
       - ServiceActionMode
+      - CloudFormationCapabilities
       - EnableManualApproval
       - EnableCustomBuild
       - EnableCdn
@@ -2151,6 +3066,12 @@ Metadata:
       - ServiceSubdomain
       - ServiceHealthCheckPath
     - Label:
+        default: "AppConfig Configuration"
+      Parameters:
+      - EnableAppConfig
+      - EnableFeatureFlag
+      - ApplicationDescription
+    - Label:
         default: "Tags"
       Parameters:
       - TagEnvironment
@@ -2173,6 +3094,8 @@ Metadata:
         default: "CodePipeline CloudFormation Action Mode:"
       ServiceActionMode:
         default: "Service CloudFormation Action Mode:"
+      CloudFormationCapabilities:
+        default: "CloudFormation Capabilities:"
       # Special Feature Configuration
       EnableManualApproval:
         default: "Enable Manual Approval:"
@@ -2241,6 +3164,13 @@ Metadata:
         default: "Service Subdomain:"
       ServiceHealthCheckPath:
         default: "Service Health Check Path:"
+      # AppConfig Configuration
+      EnableAppConfig:
+        default: "Enable AppConfig Profile:"
+      EnableFeatureFlag:
+        default: "Enable Feature Flags:"
+      ApplicationDescription:
+        default: "Application Description:"
       # Tags
       TagEnvironment:
         default: "Environment:"

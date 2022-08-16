@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create an AppConfig Deployment - (v1.3.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  ApplicationName:
+    Type: "String"
+    Description: "The name of the application."
+  ApplicationType:
+    Type: "String"
+    Description: "The type of the application."
+  ConfigurationVersion:
+    Type: "String"
+    Description: "The AppConfig version to deploy."
+  DeploymentStrategy:
+    Type: "String"
+    Description: "Which deployment strategy should be used?  If \"Custom\" is selected, then the deployment strategy created by this project will be used."
+    AllowedValues:
+    - "AppConfig.AllAtOnce"
+    - "AppConfig.Linear50PercentEvery30Seconds"
+    - "AppConfig.Canary10Percent20Minutes"
+    - "Custom"
+    Default: "Custom"
+  Description:
+    Type: "String"
+    Description: "The description of the deployment."
+  # Tag Configuration
+  TagEnvironment:
+    Type: "String"
+    Description: "Which environment are we deploying to?"
+Conditions:
+  CustomDeploymentStrategy: !Equals [ !Ref DeploymentStrategy, "Custom" ]
+Resources:
+  AppConfigDeployment:
+    Type: "AWS::AppConfig::Deployment"
+    Properties:
+      ApplicationId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/id}}"
+      ConfigurationProfileId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/configuration-profile/${TagEnvironment}/id}}"
+      DeploymentStrategyId: !If [ CustomDeploymentStrategy, !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/deployment-strategy/id}}", !Ref DeploymentStrategy ]
+      EnvironmentId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/${TagEnvironment}/id}}"
+      ConfigurationVersion: !Ref ConfigurationVersion
+      Description: !Ref Description
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  AppConfigDeployment:
+    Description: "The ID of the application deployment."
+    Value: !Ref AppConfigDeployment
+    Export:
+      Name: !Sub "${AWS::StackName}-AppConfigDeployment"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+      - ApplicationName
+      - ApplicationType
+      - ConfigurationVersion
+      - DeploymentStrategy
+      - Description
+    - Label:
+        default: "Tag Configuration"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      ApplicationName:
+        default: "Application Name:"
+      ApplicationType:
+        default: "Application Type:"
+      ConfigurationVersion:
+        default: "Configuration Version:"
+      DeploymentStrategy:
+        default: "Deployment Strategy:"
+      Description:
+        default: "Environment Description:"
+      # Tag Configuration
+      TagEnvironment:
+        default: "Environment:"

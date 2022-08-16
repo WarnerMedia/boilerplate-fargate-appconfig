@@ -151,7 +151,7 @@ Parameters:
   ServiceSubdomain:
     Type: "String"
     Description: "What is the base name for the DNS entry? The environment will automatically be added to the end."
-    Default: "boilerplate-fargate-nodejs"
+    Default: "boilerplate-fargate-appconfig"
   ServiceHealthCheckPath:
     Type: "String"
     Description: "What is the path of the health check?"

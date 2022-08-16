@@ -17,7 +17,7 @@ Parameters:
   ProjectName:
     Type: "String"
     Description: "The base name of the CodePipeline project (e.g. foo-bar-baz)."
-    Default: "boilerplate-fargate-nodejs"
+    Default: "boilerplate-fargate-appconfig"
   SecondRegion:
     Type: "String"
     Description: "What is the second region this service should be deployed to?"

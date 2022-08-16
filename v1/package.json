@@ -1,7 +1,7 @@
 {
-  "name": "boilerplate-fargate-nodejs",
+  "name": "boilerplate-fargate-appconfig",
   "version": "1.0.0",
-  "description": "This is a Boilerplate Node.js Fargate application.",
+  "description": "This is a Fargate/AppConfig application boilerplate.",
   "main": "src/app.js",
   "repository": {
     "type": "git"
