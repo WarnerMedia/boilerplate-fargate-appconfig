@@ -1,0 +1,247 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create an AppConfig Hosted Configuration Version - (v1.3.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  ApplicationName:
+    Type: "String"
+    Description: "The name of the application."
+  ApplicationType:
+    Type: "String"
+    Description: "The type of the application."
+  Description:
+    Type: "String"
+    Description: "The description of the configuration version."
+  # Flag Configuration
+  FlagHeader:
+    Type: "String"
+    Description: "Enable the header flag."
+    AllowedValues:
+    - "true"
+    - "false"
+    Default: "true"
+  FlagFooter:
+    Type: "String"
+    Description: "Enable the footer flag."
+    AllowedValues:
+    - "true"
+    - "false"
+    Default: "true"
+  FlagShortTermFeature:
+    Type: "String"
+    Description: "Enable the short-term feature flag."
+    AllowedValues:
+    - "true"
+    - "false"
+    Default: "false"
+  # Tag Configuration
+  TagEnvironment:
+    Type: "String"
+    Description: "Which environment are we deploying to?"
+Resources:
+  AppConfigHostedConfigurationVersion:
+    Type: "AWS::AppConfig::HostedConfigurationVersion"
+    Properties:
+      ApplicationId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationName}/id}}"
+      ConfigurationProfileId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationName}/configuration-profile/${TagEnvironment}/id}}"
+      Description: !Ref Description
+      ContentType: "application/json"
+      Content: !Sub |
+        {
+            "flags": {
+                "header": {
+                    "attributes": {
+                        "background-color": {
+                            "constraints": {
+                                "required": true,
+                                "type": "string"
+                            }
+                        },
+                        "text-color": {
+                            "constraints": {
+                                "required": true,
+                                "type": "string"
+                            }
+                        },
+                        "enable-login": {
+                            "constraints": {
+                                "required": true,
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "description": "Enable the new header.",
+                    "name": "header"
+                },
+                "footer": {
+                    "attributes": {
+                        "background-color": {
+                            "constraints": {
+                                "pattern": "^#(?:[0-9a-fA-F]{3,4}){1,2}$",
+                                "required": true,
+                                "type": "string"
+                            }
+                        },
+                        "text-color": {
+                            "constraints": {
+                                "pattern": "^#(?:[0-9a-fA-F]{3,4}){1,2}$",
+                                "required": true,
+                                "type": "string"
+                            }
+                        },
+                        "copyright": {
+                            "constraints": {
+                                "elements": {
+                                    "type": "string"
+                                },
+                                "type": "array"
+                            }
+                        },
+                        "copyright-alignment": {
+                            "constraints": {
+                                "enum": [
+                                    "right",
+                                    "center",
+                                    "left"
+                                ],
+                                "type": "string"
+                            }
+                        },
+                        "date": {
+                            "constraints": {
+                                "pattern": "\\d{2}\\/\\d{2}\\/\\d{4}",
+                                "type": "string"
+                            }
+                        },
+                        "numbers": {
+                            "constraints": {
+                                "elements": {
+                                    "type": "number"
+                                },
+                                "type": "array"
+                            }
+                        }
+                    },
+                    "description": "Enable the new footer.",
+                    "name": "footer"
+                },
+                "short-term-feature": {
+                    "_deprecation": {
+                        "status": "planned"
+                    },
+                    "attributes": {
+                        "version": {
+                            "constraints": {
+                                "maximum": 9999,
+                                "minimum": 1,
+                                "required": true,
+                                "type": "number"
+                            }
+                        }
+                    },
+                    "description": "This is a short-term flag that will need to be removed.  Pretending there is a version of the temporary feature.",
+                    "name": "short-term-feature"
+                }
+            },
+            "values": {
+                "header": {
+                    "enabled": ${FlagHeader},
+                    "background-color": "#A9A9A9",
+                    "text-color": "#FAEBD7",
+                    "enable-login": true
+                },
+                "footer": {
+                    "copyright": [
+                        "2022",
+                        "Some Company Name.",
+                        "All Rights Reserved."
+                    ],
+                    "copyright-alignment": "right",
+                    "date": "05/03/2022",
+                    "enabled": ${FlagFooter},
+                    "numbers": [
+                        2,
+                        3,
+                        4,
+                        98,
+                        123
+                    ],
+                    "text-color": "#FAEBD7",
+                    "background-color": "#696969"
+                },
+                "short-term-feature": {
+                    "enabled": ${FlagShortTermFeature},
+                    "version": 1
+                }
+            },
+            "version": "1"
+        }
+  ParamAppConfigHostedConfigurationVersionId:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      DataType: "text"
+      Description: "The AppConfig hosted configuration version ID."
+      Name: !Sub "/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/configuration-version/hosted/${TagEnvironment}/id"
+      Tier: "Standard"
+      Type: "String"
+      Value: !Ref AppConfigHostedConfigurationVersion
+      Tags:
+        Name: !Ref "AWS::StackName"
+        application: !Ref "AWS::StackName"
+        customer: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+        contact-email: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+        environment: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/environment}}"
+        team: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  AppConfigHostedConfigurationVersion:
+    Description: "The ID of the application hosted configuration version."
+    Value: !Ref AppConfigHostedConfigurationVersion
+    Export:
+      Name: !Sub "${AWS::StackName}-AppConfigHostedConfigurationVersion"
+  ParamAppConfigHostedConfigurationVersionId:
+    Description: "The application hosted configuration version ID SSM parameter."
+    Value: !Ref ParamAppConfigHostedConfigurationVersionId
+    Export:
+      Name: !Sub "${AWS::StackName}-ParamAppConfigHostedConfigurationVersionId"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+      - ApplicationName
+      - ApplicationType
+      - Description
+    - Label:
+        default: "Flag Configuration"
+      Parameters:
+      - FlagHeader
+      - FlagFooter
+      - FlagShortTermFeature
+    - Label:
+        default: "Tag Configuration"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      ApplicationName:
+        default: "Application Name:"
+      ApplicationType:
+        default: "Application Type:"
+      Description:
+        default: "Environment Description:"
+      # Flag Configuration
+      FlagHeader:
+        default: "Enable Header Flag:"
+      FlagFooter:
+        default: "Enable Footer Flag:"
+      FlagShortTermFeature:
+        default: "Enable Short Term Feature Flag:"
+      # Tag Configuration
+      TagEnvironment:
+        default: "Environment:"

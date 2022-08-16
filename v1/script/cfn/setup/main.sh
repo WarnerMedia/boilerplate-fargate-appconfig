@@ -138,6 +138,14 @@ read -p "Service subdomain (Default: $SERVICE_SUBDOMAIN): " service_subdomain
 echo "The service subdomain is: ${service_subdomain:-$SERVICE_SUBDOMAIN}"
 
 echo ""
+read -p "Enable AppConfig Profile (Default: $ENABLE_APPCONFIG): " enable_appconfig
+echo "Current AppConfig Profile value: ${enable_appconfig:-$ENABLE_APPCONFIG}"
+
+echo ""
+read -p "Enable AppConfig Feature Flags (Default: $ENABLE_FEATURE_FLAG): " enable_feature_flag
+echo "Current AppConfig Feature Flag value: ${enable_feature_flag:-$ENABLE_FEATURE_FLAG}"
+
+echo ""
 echo "If you want this application deployed to a second region for all environments, then set that region next."
 read -p "Second Region (Default: $SECOND_REGION): " second_region
 echo "The second region is: ${second_region:-$SECOND_REGION}"
@@ -159,7 +167,7 @@ fi
 
 if [ -n "${prod_profile:-$PROD_PROFILE}" ]; then
   echo "Creating/Updating Production Stack"
-  run_deploy "${stack_name:-$STACK_NAME}$STACK_NAME_SUFFIX" "AppGitHubOrganization=${github_organization:-$GITHUB_ORGANIZATION} AppSourceRepository=${app_source_repository:-$APP_SOURCE_REPOSITORY} ExternalArtifactBucket=${nonprod_s3_artifact_bucket:-$NONPROD_S3_ARTIFACT_BUCKET} EcrNonProdAccount=${nonprod_account:-$NONPROD_ACCOUNT} EcrProdAccount=${prod_account:-$PROD_ACCOUNT} EcsRepositoryName=${ecs_repo_name:-$ECS_REPO_NAME} EnableCustomBuild=${prod_enable_custom_commands:-$PROD_ENABLE_CUSTOM_COMMANDS} ProjectName=${project_name:-$PROJECT_NAME} ServiceSubdomain=${service_subdomain:-$SERVICE_SUBDOMAIN} ActionMode=${action_mode:-$ACTION_MODE} ServiceActionMode=${service_action_mode:-$SERVICE_ACTION_MODE} SecondRegion=${second_region:-$SECOND_REGION} UnstableEnvironment=NONE InitialEnvironment=NONE QaEnvironment=NONE StageEnvironment=NONE TagEnvironment=prod " "$TAGS environment=prod" "${prod_profile:-$PROD_PROFILE}"
+  run_deploy "${stack_name:-$STACK_NAME}$STACK_NAME_SUFFIX" "AppGitHubOrganization=${github_organization:-$GITHUB_ORGANIZATION} AppSourceRepository=${app_source_repository:-$APP_SOURCE_REPOSITORY} ExternalArtifactBucket=${nonprod_s3_artifact_bucket:-$NONPROD_S3_ARTIFACT_BUCKET} EcrNonProdAccount=${nonprod_account:-$NONPROD_ACCOUNT} EcrProdAccount=${prod_account:-$PROD_ACCOUNT} EcsRepositoryName=${ecs_repo_name:-$ECS_REPO_NAME} EnableCustomBuild=${prod_enable_custom_commands:-$PROD_ENABLE_CUSTOM_COMMANDS} ProjectName=${project_name:-$PROJECT_NAME} ServiceSubdomain=${service_subdomain:-$SERVICE_SUBDOMAIN} EnableAppConfig=${enable_appconfig:-$ENABLE_APPCONFIG} EnableFeatureFlag=${enable_feature_flag:-$ENABLE_FEATURE_FLAG} ActionMode=${action_mode:-$ACTION_MODE} ServiceActionMode=${service_action_mode:-$SERVICE_ACTION_MODE} SecondRegion=${second_region:-$SECOND_REGION} UnstableEnvironment=NONE InitialEnvironment=NONE QaEnvironment=NONE StageEnvironment=NONE TagEnvironment=prod " "$TAGS environment=prod" "${prod_profile:-$PROD_PROFILE}"
   if [ "${first_run:-$FIRST_RUN}" = "Yes" ]; then
     run_codebuild "${project_name:-$PROJECT_NAME}-orchestrator" "${prod_profile:-$PROD_PROFILE}"
   fi
@@ -169,7 +177,7 @@ fi
 
 if [ -n "${nonprod_profile:-$NONPROD_PROFILE}" ]; then
   echo "Creating/Updating Non-Prod Stack"
-  run_deploy "${stack_name:-$STACK_NAME}$STACK_NAME_SUFFIX" "AppGitHubOrganization=${github_organization:-$GITHUB_ORGANIZATION} AppSourceRepository=${app_source_repository:-$APP_SOURCE_REPOSITORY} ExternalArtifactBucket=${prod_s3_artifact_bucket:-$PROD_S3_ARTIFACT_BUCKET} EcrNonProdAccount=${nonprod_account:-$NONPROD_ACCOUNT} EcrProdAccount=${prod_account:-$PROD_ACCOUNT} EcsRepositoryName=${ecs_repo_name:-$ECS_REPO_NAME} EnableCustomBuild=${nonprod_enable_custom_commands:-$NONPROD_ENABLE_CUSTOM_COMMANDS} ProjectName=${project_name:-$PROJECT_NAME} ServiceSubdomain=${service_subdomain:-$SERVICE_SUBDOMAIN} ActionMode=${action_mode:-$ACTION_MODE} ServiceActionMode=${service_action_mode:-$SERVICE_ACTION_MODE} SecondRegion=${second_region:-$SECOND_REGION} ProdEnvironment=NONE TagEnvironment=nonprod " "$TAGS environment=nonprod" "${nonprod_profile:-$NONPROD_PROFILE}"
+  run_deploy "${stack_name:-$STACK_NAME}$STACK_NAME_SUFFIX" "AppGitHubOrganization=${github_organization:-$GITHUB_ORGANIZATION} AppSourceRepository=${app_source_repository:-$APP_SOURCE_REPOSITORY} ExternalArtifactBucket=${prod_s3_artifact_bucket:-$PROD_S3_ARTIFACT_BUCKET} EcrNonProdAccount=${nonprod_account:-$NONPROD_ACCOUNT} EcrProdAccount=${prod_account:-$PROD_ACCOUNT} EcsRepositoryName=${ecs_repo_name:-$ECS_REPO_NAME} EnableCustomBuild=${nonprod_enable_custom_commands:-$NONPROD_ENABLE_CUSTOM_COMMANDS} ProjectName=${project_name:-$PROJECT_NAME} ServiceSubdomain=${service_subdomain:-$SERVICE_SUBDOMAIN} EnableAppConfig=${enable_appconfig:-$ENABLE_APPCONFIG} EnableFeatureFlag=${enable_feature_flag:-$ENABLE_FEATURE_FLAG} ActionMode=${action_mode:-$ACTION_MODE} ServiceActionMode=${service_action_mode:-$SERVICE_ACTION_MODE} SecondRegion=${second_region:-$SECOND_REGION} ProdEnvironment=NONE TagEnvironment=nonprod " "$TAGS environment=nonprod" "${nonprod_profile:-$NONPROD_PROFILE}"
   if [ "${first_run:-$FIRST_RUN}" = "Yes" ]; then
     run_codebuild "${project_name:-$PROJECT_NAME}-orchestrator" "${nonprod_profile:-$NONPROD_PROFILE}"
   fi

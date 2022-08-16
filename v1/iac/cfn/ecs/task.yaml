@@ -22,7 +22,7 @@ Parameters:
   ServiceBaseName:
     Type: "String"
     Description: "What is the name for this service (should generally line up with container image)?"
-    Default: "boilerplate-fargate-nodejs"
+    Default: "boilerplate-fargate-appconfig"
   ContainerPort:
     Type: "Number"
     Description: "What port should the container run on?"

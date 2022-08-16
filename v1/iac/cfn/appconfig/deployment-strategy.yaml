@@ -1,0 +1,140 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create an AppConfig Deployment Strategy - (v1.1.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  ApplicationName:
+    Type: "String"
+    Description: "The name of the application."
+  ApplicationType:
+    Type: "String"
+    Description: "The type of the application."
+  DeploymentName:
+    Type: "String"
+    Description: "The name of the deployment strategy."
+    Default: "Custom.Immediate.Bake5Mins"
+  Description:
+    Type: "String"
+    Description: "The description of the deployment strategy."
+    Default: "Deploy immediately and bake for five minutes."
+  # Deployment Strategy
+  DeploymentDuration:
+    Type: "Number"
+    Description: "The deployment duration (in minutes)."
+    Default: 0
+  FinalBakeTime:
+    Type: "Number"
+    Description: "The final bake time (in minutes)."
+    Default: 5
+  GrowthFactor:
+    Type: "Number"
+    Description: "The growth factor."
+    Default: 10
+  GrowthType:
+    Type: "String"
+    Description: "Should we use linear or exponential growth."
+    AllowedValues:
+    - "EXPONENTIAL"
+    - "LINEAR"
+    Default: "LINEAR"
+  ReplicateTo:
+    Type: "String"
+    Description: "Save the deployment strategy to a Systems Manager (SSM) document."
+    AllowedValues:
+    - "NONE"
+    - "SSM_DOCUMENT"
+    Default: "NONE"
+Resources:
+  AppConfigDeploymentStrategy:
+    Type: "AWS::AppConfig::DeploymentStrategy"
+    Properties:
+      Name: !Ref DeploymentName
+      Description: !Ref Description
+      DeploymentDurationInMinutes: !Ref DeploymentDuration
+      FinalBakeTimeInMinutes: !Ref FinalBakeTime
+      GrowthFactor: !Ref GrowthFactor
+      GrowthType: !Ref GrowthType
+      ReplicateTo: !Ref ReplicateTo
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/environment}}"
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  ParamAppConfigDeploymentStrategyId:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      DataType: "text"
+      Description: "The AppConfig deployment strategy ID."
+      Name: !Sub "/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/deployment-strategy/id"
+      Tier: "Standard"
+      Type: "String"
+      Value: !Ref AppConfigDeploymentStrategy
+      Tags:
+        Name: !Ref "AWS::StackName"
+        application: !Ref "AWS::StackName"
+        customer: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+        contact-email: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+        environment: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/environment}}"
+        team: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  AppConfigDeploymentStrategy:
+    Description: "The ID of the deployment strategy."
+    Value: !Ref AppConfigDeploymentStrategy
+    Export:
+      Name: !Sub "${AWS::StackName}-AppConfigDeploymentStrategy"
+  ParamAppConfigDeploymentStrategyId:
+    Description: "The deployment strategy ID SSM parameter."
+    Value: !Ref ParamAppConfigDeploymentStrategyId
+    Export:
+      Name: !Sub "${AWS::StackName}-ParamAppConfigDeploymentStrategyId"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+      - ApplicationName
+      - ApplicationType
+      - DeploymentName
+      - Description
+    - Label:
+        default: "Deployment Strategy"
+      Parameters:
+      - DeploymentDuration
+      - FinalBakeTime
+      - GrowthFactor
+      - GrowthType
+      - ReplicateTo
+    ParameterLabels:
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      ApplicationName:
+        default: "Application Name:"
+      ApplicationType:
+        default: "Application Type:"
+      DeploymentName:
+        default: "Deployment Name:"
+      Description:
+        default: "Description:"
+      DeploymentDuration:
+        default: "Deployment Duration (In Minutes):"
+      FinalBakeTime:
+        default: "Final Bake Time (In Minutes):"
+      GrowthFactor:
+        default: "Growth Factor:"
+      GrowthType:
+        default: "Growth Type:"
+      ReplicateTo:
+        default: "Replicate To:"

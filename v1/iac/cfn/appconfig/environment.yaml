@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create an AppConfig Application Environment - (v1.0.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  ApplicationName:
+    Type: "String"
+    Description: "The name of the application."
+  ApplicationType:
+    Type: "String"
+    Description: "The type of the application."
+  Description:
+    Type: "String"
+    Description: "The description of the application."
+  # Tag Configuration
+  TagEnvironment:
+    Type: "String"
+    Description: "Which environment are we deploying to?"
+Resources:
+  AppConfigEnvironment:
+    Type: "AWS::AppConfig::Environment"
+    Properties:
+      ApplicationId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/id}}"
+      Name: !Ref TagEnvironment
+      Description: !Ref Description
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+  ParamAppConfigEnvironmentId:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      DataType: "text"
+      Description: "The AppConfig Application Environment ID."
+      Name: !Sub "/appconfig/${InfrastructureName}/application/${ApplicationName}/${TagEnvironment}/id"
+      Tier: "Standard"
+      Type: "String"
+      Value: !Ref AppConfigEnvironment
+      Tags:
+        Name: !Ref "AWS::StackName"
+        application: !Ref "AWS::StackName"
+        customer: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+        contact-email: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+        environment: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/environment}}"
+        team: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  AppConfigEnvironment:
+    Description: "The ID of the application environment."
+    Value: !Ref AppConfigEnvironment
+    Export:
+      Name: !Sub "${AWS::StackName}-AppConfigEnvironment"
+  ParamAppConfigEnvironmentId:
+    Description: "The application environment ID SSM parameter."
+    Value: !Ref ParamAppConfigEnvironmentId
+    Export:
+      Name: !Sub "${AWS::StackName}-ParamAppConfigEnvironmentId"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+      - ApplicationName
+      - ApplicationType
+      - Description
+    - Label:
+        default: "Tag Configuration"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      ApplicationName:
+        default: "Application Name:"
+      ApplicationType:
+        default: "Application Type:"
+      Description:
+        default: "Environment Description:"
+      # Tag Configuration
+      TagEnvironment:
+        default: "Environment:"

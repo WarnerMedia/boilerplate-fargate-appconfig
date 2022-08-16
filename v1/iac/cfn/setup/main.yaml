@@ -18,7 +18,7 @@ Parameters:
   ProjectName:
     Type: "String"
     Description: "The base name of the CodePipeline project (e.g. foo-bar-baz)."
-    Default: "boilerplate-fargate-nodejs"
+    Default: "boilerplate-fargate-appconfig"
   InfrastructureSuffix:
     Type: "String"
     Description: "The suffix to add to the infrastructure CodePipeline."
@@ -94,6 +94,21 @@ Parameters:
     Type: "String"
     Description: "What is the name of the function used to send out Slack notifications?"
     Default: "codepipeline-slack-notification-prod"
+  # CodePipeline AppConfig Configuration
+  EnableAppConfig:
+    Type: "String"
+    Description: "Enable AppConfig Profile."
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  EnableFeatureFlag:
+    Type: "String"
+    Description: "Enable AppConfig Feature Flags."
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
   # Source Configuration
   GitHubBuildAgentAccountId:
     Type: "AWS::SSM::Parameter::Value<String>"
@@ -104,7 +119,7 @@ Parameters:
     Description: "The GitHub organization that the repository is a part of (e.g. warnermedia)."
   AppSourceRepository:
     Type: "String"
-    Description: "The application source repository name (e.g. boilerplate-fargate-nodejs)."
+    Description: "The application source repository name (e.g. boilerplate-fargate-appconfig)."
   AppSourceBranch:
     Type: "String"
     Description: "What is the GitHub application repository branch?"
@@ -206,7 +221,7 @@ Parameters:
   ServiceSubdomain:
     Type: "String"
     Description: "What is the base name for the DNS entry? The environment will automatically be added to the end."
-    Default: "boilerplate-fargate-nodejs"
+    Default: "boilerplate-fargate-appconfig"
   # Tag Configuration
   TagEnvironment:
     Type: "String"
@@ -580,6 +595,8 @@ Resources:
                 "ServiceSubdomain": "${ServiceSubdomain}",
                 "ActionMode": "${ActionMode}",
                 "ServiceActionMode": "${ServiceActionMode}",
+                "EnableAppConfig": "${EnableAppConfig}",
+                "EnableFeatureFlag": "${EnableFeatureFlag}",
                 "SecondRegion": "${SecondRegion}",
                 "UnstableEnvironment": "${UnstableEnvironment}",
                 "InitialEnvironment": "${InitialEnvironment}",
@@ -685,6 +702,11 @@ Metadata:
       - EnableNotifications
       - SlackNotificationLambda
     - Label:
+        default: "CodePipeline AppConfig Configuration"
+      Parameters:
+      - EnableAppConfig
+      - EnableFeatureFlag
+    - Label:
         default: "Source Configuration"
       Parameters:
       - GitHubBuildAgentAccountId
@@ -764,6 +786,10 @@ Metadata:
         default: "Enable E-mail and Slack Notifications:"
       SlackNotificationLambda:
         default: "Slack Notification Lambda Name:"
+      EnableAppConfig:
+        default: "Enable AppConfig:"
+      EnableFeatureFlag:
+        default: "Enable AppConfig Feature Flags:"
       # Source Configuration
       GitHubBuildAgentAccountId:
         default: "GitHub Build Agent Account ID:"
