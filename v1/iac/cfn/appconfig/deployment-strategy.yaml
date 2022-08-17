@@ -9,9 +9,13 @@ Parameters:
   ApplicationName:
     Type: "String"
     Description: "The name of the application."
-  ApplicationType:
+  ProfileType:
     Type: "String"
-    Description: "The type of the application."
+    Description: "The type of configuration profile."
+    AllowedValues:
+    - "feature-flag"
+    - "freeform"
+    Default: "freeform"
   DeploymentName:
     Type: "String"
     Description: "The name of the deployment strategy."
@@ -76,7 +80,7 @@ Resources:
     Properties:
       DataType: "text"
       Description: "The AppConfig deployment strategy ID."
-      Name: !Sub "/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/deployment-strategy/id"
+      Name: !Sub "/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/deployment-strategy/id"
       Tier: "Standard"
       Type: "String"
       Value: !Ref AppConfigDeploymentStrategy
@@ -106,7 +110,7 @@ Metadata:
       Parameters:
       - InfrastructureName
       - ApplicationName
-      - ApplicationType
+      - ProfileType
       - DeploymentName
       - Description
     - Label:
@@ -122,8 +126,8 @@ Metadata:
         default: "Infrastructure Name:"
       ApplicationName:
         default: "Application Name:"
-      ApplicationType:
-        default: "Application Type:"
+      ProfileType:
+        default: "Profile Type:"
       DeploymentName:
         default: "Deployment Name:"
       Description:

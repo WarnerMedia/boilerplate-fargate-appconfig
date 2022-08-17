@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create the CodePipeline needed to build the base infrastructure for this service - (v1.2.1)"
+Description: "Create the CodePipeline needed to build the base infrastructure for this service - (v1.3.0)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -84,16 +84,25 @@ Parameters:
     - "Yes"
     - "No"
     Default: "Yes"
-  EnableAppConfig:
+  # AppConfig Configuration
+  EnableFreeform:
     Type: "String"
-    Description: "Enable AppConfig Profile."
+    Description: "Enable AppConfig Freeform configuration."
     AllowedValues:
     - "Yes"
     - "No"
     Default: "Yes"
+  FreeformFormat:
+    Type: "String"
+    Description: "If enabled, what format should the AppConfig Freeform configuration use?"
+    AllowedValues:
+    - "json"
+    - "text"
+    - "yaml"
+    Default: "yaml"
   EnableFeatureFlag:
     Type: "String"
-    Description: "Enable AppConfig Feature Flags."
+    Description: "Enable AppConfig Feature Flags configuration."
     AllowedValues:
     - "Yes"
     - "No"
@@ -234,7 +243,7 @@ Conditions:
   AppBaseFolder: !Not [ !Equals [ !Ref AppBaseFolder, "" ] ]
   EnableCdn: !Equals [ !Ref EnableCdn, "Yes" ]
   EnableCustomBuild: !Equals [ !Ref EnableCustomBuild, "Yes" ]
-  EnableAppConfig: !Equals [ !Ref EnableAppConfig, "Yes" ]
+  EnableFreeform: !Equals [ !Ref EnableFreeform, "Yes" ]
   EnableFeatureFlag: !Equals [ !Ref EnableFeatureFlag, "Yes" ]
   EnableManualApproval: !Equals [ !Ref EnableManualApproval, "Yes" ]
   EnableNotifications: !Equals [ !Ref EnableNotifications, "Yes" ]
@@ -1695,6 +1704,888 @@ Resources:
             Region: "us-east-1"
         - !Ref "AWS::NoValue"
 
+      # Appconfig Freeform Application Configuration
+
+      - !If
+        - EnableFreeform
+        - Name: "AppConfig_Freeform_Applications"
+          Actions:
+          - Name: "AppConfig_Freeform_Application_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-appconfig-freeform-application-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: !Ref CloudFormationCapabilities
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/application.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/freeform/${TagEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ApplicationName": "${ProjectName}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "APPCONFIG_FREEFORM_APPLICATION_PRIMARY_REGION"
+            RunOrder: 1
+            Region: !Ref "AWS::Region"
+          - !If
+            - SecondRegion
+            - Name: "AppConfig_Freeform_Application_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-application-${ServiceSubdomain}-${TagEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/application.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/freeform/${TagEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: "APPCONFIG_FREEFORM_APPLICATION_SECONDARY_REGION"
+              RunOrder: 1
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+        - !Ref "AWS::NoValue"
+
+      # Appconfig Freeform Environments Configuration
+
+      - !If
+        - EnableFreeform
+        - Name: "AppConfig_Freeform_Environments"
+          Actions:
+          - !If
+            - UnstableEnvironment
+            - Name: !Sub "AppConfig_${UnstableEnvironment}_Freeform_Environment_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-environment-${ServiceSubdomain}-${UnstableEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/freeform/${UnstableEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${UnstableEnvironment})",
+                    "TagEnvironment": "${UnstableEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${UnstableEnvironment}_FREEFORM_ENVIRONMENT_PRIMARY_REGION"
+              RunOrder: 1
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - UnstableEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${UnstableEnvironment}_Freeform_Environment_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-environment-${ServiceSubdomain}-${UnstableEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/freeform/${UnstableEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${UnstableEnvironment})",
+                    "TagEnvironment": "${UnstableEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${UnstableEnvironment}_FREEFORM_ENVIRONMENT_SECONDARY_REGION"
+              RunOrder: 1
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - InitialEnvironment
+            - Name: !Sub "AppConfig_${InitialEnvironment}_Freeform_Environment_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-environment-${ServiceSubdomain}-${InitialEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/freeform/${InitialEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${InitialEnvironment})",
+                    "TagEnvironment": "${InitialEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${InitialEnvironment}_FREEFORM_ENVIRONMENT_PRIMARY_REGION"
+              RunOrder: 2
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - InitialEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${InitialEnvironment}_Freeform_Environment_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-environment-${ServiceSubdomain}-${InitialEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/freeform/${InitialEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${InitialEnvironment})",
+                    "TagEnvironment": "${InitialEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${InitialEnvironment}_FREEFORM_ENVIRONMENT_SECONDARY_REGION"
+              RunOrder: 2
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - QaEnvironment
+            - Name: !Sub "AppConfig_${QaEnvironment}_Freeform_Environment_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-environment-${ServiceSubdomain}-${QaEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/freeform/${QaEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${QaEnvironment})",
+                    "TagEnvironment": "${QaEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${QaEnvironment}_FREEFORM_ENVIRONMENT_PRIMARY_REGION"
+              RunOrder: 3
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - QaEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${QaEnvironment}_Freeform_Environment_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-environment-${ServiceSubdomain}-${QaEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/freeform/${QaEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${QaEnvironment})",
+                    "TagEnvironment": "${QaEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${QaEnvironment}_FREEFORM_ENVIRONMENT_SECONDARY_REGION"
+              RunOrder: 3
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - StageEnvironment
+            - Name: !Sub "AppConfig_${StageEnvironment}_Freeform_Environment_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-environment-${ServiceSubdomain}-${StageEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/freeform/${StageEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${StageEnvironment})",
+                    "TagEnvironment": "${StageEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${StageEnvironment}_FREEFORM_ENVIRONMENT_PRIMARY_REGION"
+              RunOrder: 4
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - StageEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${StageEnvironment}_Freeform_Environment_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-environment-${ServiceSubdomain}-${StageEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/freeform/${StageEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${StageEnvironment})",
+                    "TagEnvironment": "${StageEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${StageEnvironment}_FREEFORM_ENVIRONMENT_SECONDARY_REGION"
+              RunOrder: 4
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - ProdEnvironment
+            - Name: !Sub "AppConfig_${ProdEnvironment}_Freeform_Environment_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-environment-${ServiceSubdomain}-${ProdEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/freeform/${ProdEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${ProdEnvironment})",
+                    "TagEnvironment": "${ProdEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${ProdEnvironment}_FREEFORM_ENVIRONMENT_PRIMARY_REGION"
+              RunOrder: 5
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - ProdEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${ProdEnvironment}_Freeform_Environment_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-environment-${ServiceSubdomain}-${ProdEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/environment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/environment/freeform/${ProdEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${ProdEnvironment})",
+                    "TagEnvironment": "${ProdEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${ProdEnvironment}_FREEFORM_ENVIRONMENT_SECONDARY_REGION"
+              RunOrder: 5
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+        - !Ref "AWS::NoValue"
+
+      # Appconfig Freeform Profiles Configuration
+
+      - !If
+        - EnableFreeform
+        - Name: "AppConfig_Freeform_Configuration_Profiles"
+          Actions:
+          - !If
+            - UnstableEnvironment
+            - Name: !Sub "AppConfig_${UnstableEnvironment}_Freeform_Configuration_Profile_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-configuration-profile-${ServiceSubdomain}-${UnstableEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/freeform/${UnstableEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${UnstableEnvironment})",
+                    "TagEnvironment": "${UnstableEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${UnstableEnvironment}_FREEFORM_CONFIGURATION_PROFILE_PRIMARY_REGION"
+              RunOrder: 1
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - UnstableEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${UnstableEnvironment}_Freeform_Configuration_Profile_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-configuration-profile-${ServiceSubdomain}-${UnstableEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/freeform/${UnstableEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${UnstableEnvironment})",
+                    "TagEnvironment": "${UnstableEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${UnstableEnvironment}_FREEFORM_CONFIGURATION_PROFILE_SECONDARY_REGION"
+              RunOrder: 1
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - InitialEnvironment
+            - Name: !Sub "AppConfig_${InitialEnvironment}_Freeform_Configuration_Profile_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-configuration-profile-${ServiceSubdomain}-${InitialEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/freeform/${InitialEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${InitialEnvironment})",
+                    "TagEnvironment": "${InitialEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${InitialEnvironment}_FREEFORM_CONFIGURATION_PROFILE_PRIMARY_REGION"
+              RunOrder: 2
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - InitialEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${InitialEnvironment}_Freeform_Configuration_Profile_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-configuration-profile-${ServiceSubdomain}-${InitialEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/freeform/${InitialEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${InitialEnvironment})",
+                    "TagEnvironment": "${InitialEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${InitialEnvironment}_FREEFORM_CONFIGURATION_PROFILE_SECONDARY_REGION"
+              RunOrder: 2
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - QaEnvironment
+            - Name: !Sub "AppConfig_${QaEnvironment}_Freeform_Configuration_Profile_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-configuration-profile-${ServiceSubdomain}-${QaEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/freeform/${QaEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${QaEnvironment})",
+                    "TagEnvironment": "${QaEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${QaEnvironment}_FREEFORM_CONFIGURATION_PROFILE_PRIMARY_REGION"
+              RunOrder: 3
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - QaEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${QaEnvironment}_Freeform_Configuration_Profile_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-configuration-profile-${ServiceSubdomain}-${QaEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/freeform/${QaEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${QaEnvironment})",
+                    "TagEnvironment": "${QaEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${QaEnvironment}_FREEFORM_CONFIGURATION_PROFILE_SECONDARY_REGION"
+              RunOrder: 3
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - StageEnvironment
+            - Name: !Sub "AppConfig_${StageEnvironment}_Freeform_Configuration_Profile_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-configuration-profile-${ServiceSubdomain}-${StageEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/freeform/${StageEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${StageEnvironment})",
+                    "TagEnvironment": "${StageEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${StageEnvironment}_FREEFORM_CONFIGURATION_PROFILE_PRIMARY_REGION"
+              RunOrder: 4
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - StageEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${StageEnvironment}_Freeform_Configuration_Profile_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-configuration-profile-${ServiceSubdomain}-${StageEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/freeform/${StageEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${StageEnvironment})",
+                    "TagEnvironment": "${StageEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${StageEnvironment}_FREEFORM_CONFIGURATION_PROFILE_SECONDARY_REGION"
+              RunOrder: 4
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - !If
+            - ProdEnvironment
+            - Name: !Sub "AppConfig_${ProdEnvironment}_Freeform_Configuration_Profile_Primary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-configuration-profile-${ServiceSubdomain}-${ProdEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/freeform/${ProdEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${ProdEnvironment})",
+                    "TagEnvironment": "${ProdEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${ProdEnvironment}_FREEFORM_CONFIGURATION_PROFILE_PRIMARY_REGION"
+              RunOrder: 5
+              Region: !Ref "AWS::Region"
+            - !Ref "AWS::NoValue"
+          - !If
+            - ProdEnvironmentSecondRegion
+            - Name: !Sub "AppConfig_${ProdEnvironment}_Freeform_Configuration_Profile_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-configuration-profile-${ServiceSubdomain}-${ProdEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-profile.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-profile/freeform/${ProdEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}",
+                    "Description": "${ApplicationDescription} (${ProdEnvironment})",
+                    "TagEnvironment": "${ProdEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: !Sub "APPCONFIG_${ProdEnvironment}_FREEFORM_CONFIGURATION_PROFILE_SECONDARY_REGION"
+              RunOrder: 5
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+        - !Ref "AWS::NoValue"
+
+      # AppConfig Freeform Deployment Strategies Configuration
+
+      - !If
+        - EnableFreeform
+        - Name: "AppConfig_Freeform_Deployment_Strategies"
+          Actions:
+          - Name: "AppConfig_Freeform_Deployment_Strategy_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-appconfig-freeform-deployment-strategy-${ServiceSubdomain}-${ProdEnvironment}"
+              Capabilities: !Ref CloudFormationCapabilities
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/deployment-strategy.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/deployment-strategy/freeform/${TagEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ApplicationName": "${ProjectName}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "APPCONFIG_FREEFORM_DEPLOYMENT_STRATEGY_PRIMARY_REGION"
+            RunOrder: 1
+            Region: !Ref "AWS::Region"
+          - !If
+            - SecondRegion
+            - Name: "AppConfig_Freeform_Deployment_Strategy_Secondary_Region"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-deployment-strategy-${ServiceSubdomain}-${ProdEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}iac/cfn/appconfig/deployment-strategy.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "IAC_SOURCE_FILES::${Folder}env/cfn/appconfig/deployment-strategy/freeform/${TagEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !GetAtt InfrastructureServiceRole.Arn
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${ProjectName}"
+                  }
+              InputArtifacts:
+              - Name: "IAC_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: "APPCONFIG_FREEFORM_DEPLOYMENT_STRATEGY_SECONDARY_REGION"
+              RunOrder: 1
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+        - !Ref "AWS::NoValue"
+
       # Appconfig Feature Flag Application Configuration
 
       - !If
@@ -2711,6 +3602,9 @@ Resources:
                   "SecondRegion": "${SecondRegion}",
                   "ServiceSubdomain": "${ServiceSubdomain}",
                   "ServiceHealthCheckPath": "${ServiceHealthCheckPath}",
+                  "EnableFreeform": "${EnableFreeform}",
+                  "FreeformFormat": "${FreeformFormat}",
+                  "EnableFeatureFlag": "${EnableFeatureFlag}",
                   "TagEnvironment": "${UnstableEnvironment}"
                 }
             InputArtifacts:
@@ -2760,6 +3654,9 @@ Resources:
                   "SecondRegion": "${SecondRegion}",
                   "ServiceSubdomain": "${ServiceSubdomain}",
                   "ServiceHealthCheckPath": "${ServiceHealthCheckPath}",
+                  "EnableFreeform": "${EnableFreeform}",
+                  "FreeformFormat": "${FreeformFormat}",
+                  "EnableFeatureFlag": "${EnableFeatureFlag}",
                   "TagEnvironment": "${InitialEnvironment}"
                 }
             InputArtifacts:
@@ -2810,6 +3707,9 @@ Resources:
                   "SecondRegion": "${SecondRegion}",
                   "ServiceSubdomain": "${ServiceSubdomain}",
                   "ServiceHealthCheckPath": "${ServiceHealthCheckPath}",
+                  "EnableFreeform": "${EnableFreeform}",
+                  "FreeformFormat": "${FreeformFormat}",
+                  "EnableFeatureFlag": "${EnableFeatureFlag}",
                   "TagEnvironment": "${QaEnvironment}"
                 }
             InputArtifacts:
@@ -2860,6 +3760,9 @@ Resources:
                   "SecondRegion": "${SecondRegion}",
                   "ServiceSubdomain": "${ServiceSubdomain}",
                   "ServiceHealthCheckPath": "${ServiceHealthCheckPath}",
+                  "EnableFreeform": "${EnableFreeform}",
+                  "FreeformFormat": "${FreeformFormat}",
+                  "EnableFeatureFlag": "${EnableFeatureFlag}",
                   "TagEnvironment": "${StageEnvironment}"
                 }
             InputArtifacts:
@@ -2911,6 +3814,9 @@ Resources:
                   "SecondRegion": "${SecondRegion}",
                   "ServiceSubdomain": "${ServiceSubdomain}",
                   "ServiceHealthCheckPath": "${ServiceHealthCheckPath}",
+                  "EnableFreeform": "${EnableFreeform}",
+                  "FreeformFormat": "${FreeformFormat}",
+                  "EnableFeatureFlag": "${EnableFeatureFlag}",
                   "TagEnvironment": "${ProdEnvironment}"
                 }
             InputArtifacts:
@@ -3068,7 +3974,8 @@ Metadata:
     - Label:
         default: "AppConfig Configuration"
       Parameters:
-      - EnableAppConfig
+      - EnableFreeform
+      - FreeformFormat
       - EnableFeatureFlag
       - ApplicationDescription
     - Label:
@@ -3165,10 +4072,12 @@ Metadata:
       ServiceHealthCheckPath:
         default: "Service Health Check Path:"
       # AppConfig Configuration
-      EnableAppConfig:
-        default: "Enable AppConfig Profile:"
+      EnableFreeform:
+        default: "Enable Freeform Configuration:"
+      FreeformFormat:
+        default: "Freeform Format:"
       EnableFeatureFlag:
-        default: "Enable Feature Flags:"
+        default: "Enable Feature Flags Configuration:"
       ApplicationDescription:
         default: "Application Description:"
       # Tags

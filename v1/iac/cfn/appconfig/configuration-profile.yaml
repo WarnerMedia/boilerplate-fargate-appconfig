@@ -9,9 +9,13 @@ Parameters:
   ApplicationName:
     Type: "String"
     Description: "The name of the application."
-  ApplicationType:
+  ProfileType:
     Type: "String"
-    Description: "The type of the application."
+    Description: "The type of configuration profile."
+    AllowedValues:
+    - "feature-flag"
+    - "freeform"
+    Default: "freeform"
   # ProfileName:
   #   Type: "String"
   #   Description: "The name of the configuration profile."
@@ -27,7 +31,7 @@ Resources:
   AppConfigConfigurationProfile:
     Type: "AWS::AppConfig::ConfigurationProfile"
     Properties:
-      ApplicationId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/id}}"
+      ApplicationId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/id}}"
       # Name: !Sub "${ApplicationName}-${ProfileName}-${TagEnvironment}"
       Name: !Ref TagEnvironment
       Description: !Ref Description
@@ -51,7 +55,7 @@ Resources:
     Properties:
       DataType: "text"
       Description: "The AppConfig environment configuration profile ID."
-      Name: !Sub "/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/configuration-profile/${TagEnvironment}/id"
+      Name: !Sub "/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/configuration-profile/${TagEnvironment}/id"
       Tier: "Standard"
       Type: "String"
       Value: !Ref AppConfigConfigurationProfile
@@ -81,7 +85,7 @@ Metadata:
       Parameters:
       - InfrastructureName
       - ApplicationName
-      - ApplicationType
+      - ProfileType
       # - ProfileName
       - Description
     - Label:
@@ -93,8 +97,8 @@ Metadata:
         default: "Infrastructure Name:"
       ApplicationName:
         default: "Application Name:"
-      ApplicationType:
-        default: "Application Type:"
+      ProfileType:
+        default: "Profile Type:"
       # ProfileName:
       #   default: "Profile Name:"
       Description:

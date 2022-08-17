@@ -1,5 +1,5 @@
 {
   "Parameters": {
-    "ApplicationType": "feature-flag"
+    "ProfileType": "feature-flag"
   }
 }
