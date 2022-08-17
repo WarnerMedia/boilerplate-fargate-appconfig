@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create an AppConfig Deployment Strategy - (v1.2.0)"
+Description: "Create an AppConfig Deployment Strategy - (v1.2.1)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -51,11 +51,16 @@ Parameters:
     - "NONE"
     - "SSM_DOCUMENT"
     Default: "NONE"
+Conditions:
+  FeatureFlag: !Equals [ !Ref ProfileType, "feature-flag" ]
 Resources:
   AppConfigDeploymentStrategy:
     Type: "AWS::AppConfig::DeploymentStrategy"
     Properties:
-      Name: !Sub "Custom.${ProfileType}.${DeploymentName}"
+      Name:
+        Fn::Sub:
+        - "Custom.${Type}.${DeploymentName}"
+        - Type: !If [ FeatureFlag, "FeatureFlag", "Freeform" ]
       Description: !Ref Description
       DeploymentDurationInMinutes: !Ref DeploymentDuration
       FinalBakeTimeInMinutes: !Ref FinalBakeTime
