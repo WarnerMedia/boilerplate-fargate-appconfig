@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create the CodePipeline needed to deploy this service - (v1.1.2)"
+Description: "Create the CodePipeline needed to deploy this service - (v1.1.3)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -346,11 +346,11 @@ Resources:
               Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
-                - "APPCONFIG_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-version/hosted/freeform-${FreeformFormat}.yaml"
+                - "SERVICE_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-version/hosted/freeform-${FreeformFormat}.yaml"
                 - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
               TemplateConfiguration:
                 Fn::Sub:
-                - "APPCONFIG_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-version/hosted/freeform/${TagEnvironment}.json"
+                - "SERVICE_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-version/hosted/freeform/${TagEnvironment}.json"
                 - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
               RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${ProjectName}/deploy/arn}}"
               OutputFileName: "out.json"
@@ -361,8 +361,8 @@ Resources:
                   "TagEnvironment": "${TagEnvironment}"
                 }
             InputArtifacts:
-            - Name: "APPCONFIG_SOURCE_FILES"
-            - Name: "APPCONFIG_ENV_SOURCE_FILES"
+            - Name: "SERVICE_SOURCE_FILES"
+            - Name: "SERVICE_ENV_SOURCE_FILES"
             OutputArtifacts:
             - Name: "APPCONFIG_FREEFORM_VERSION_FIRST_REGION_OUTPUT"
             RunOrder: 1
@@ -382,11 +382,11 @@ Resources:
                 Capabilities: !Ref CloudFormationCapabilities
                 TemplatePath:
                   Fn::Sub:
-                  - "APPCONFIG_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-version/hosted/freeform-${FreeformFormat}.yaml"
+                  - "SERVICE_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-version/hosted/freeform-${FreeformFormat}.yaml"
                   - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
                 TemplateConfiguration:
                   Fn::Sub:
-                  - "APPCONFIG_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-version/hosted/freeform/${TagEnvironment}.json"
+                  - "SERVICE_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-version/hosted/freeform/${TagEnvironment}.json"
                   - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
                 RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${ProjectName}/deploy/arn}}"
                 OutputFileName: "out.json"
@@ -397,8 +397,8 @@ Resources:
                     "TagEnvironment": "${TagEnvironment}"
                   }
               InputArtifacts:
-              - Name: "APPCONFIG_SOURCE_FILES"
-              - Name: "APPCONFIG_ENV_SOURCE_FILES"
+              - Name: "SERVICE_SOURCE_FILES"
+              - Name: "SERVICE_ENV_SOURCE_FILES"
               OutputArtifacts:
               - Name: "APPCONFIG_FREEFORM_VERSION_SECOND_REGION_OUTPUT"
               RunOrder: 1
@@ -417,11 +417,11 @@ Resources:
               Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
-                - "APPCONFIG_SOURCE_FILES::${Folder}iac/cfn/appconfig/deployment.yaml"
+                - "SERVICE_SOURCE_FILES::${Folder}iac/cfn/appconfig/deployment.yaml"
                 - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
               TemplateConfiguration:
                 Fn::Sub:
-                - "APPCONFIG_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/deployment/freeform/${TagEnvironment}.json"
+                - "SERVICE_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/deployment/freeform/${TagEnvironment}.json"
                 - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
               RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${ProjectName}/deploy/arn}}"
               OutputFileName: "out.json"
@@ -433,8 +433,8 @@ Resources:
                   "TagEnvironment": "${TagEnvironment}"
                 }
             InputArtifacts:
-            - Name: "APPCONFIG_SOURCE_FILES"
-            - Name: "APPCONFIG_ENV_SOURCE_FILES"
+            - Name: "SERVICE_SOURCE_FILES"
+            - Name: "SERVICE_ENV_SOURCE_FILES"
             - Name: "APPCONFIG_FREEFORM_VERSION_FIRST_REGION_OUTPUT"
             OutputArtifacts:
             - Name: "APPCONFIG_FREEFORM_DEPLOYMENT_FIRST_REGION_OUTPUT"
@@ -455,11 +455,11 @@ Resources:
                 Capabilities: !Ref CloudFormationCapabilities
                 TemplatePath:
                   Fn::Sub:
-                  - "APPCONFIG_SOURCE_FILES::${Folder}iac/cfn/appconfig/deployment.yaml"
+                  - "SERVICE_SOURCE_FILES::${Folder}iac/cfn/appconfig/deployment.yaml"
                   - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
                 TemplateConfiguration:
                   Fn::Sub:
-                  - "APPCONFIG_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/deployment/freeform/${TagEnvironment}.json"
+                  - "SERVICE_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/deployment/freeform/${TagEnvironment}.json"
                   - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
                 RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${ProjectName}/deploy/arn}}"
                 OutputFileName: "out.json"
@@ -471,8 +471,8 @@ Resources:
                     "TagEnvironment": "${TagEnvironment}"
                   }
               InputArtifacts:
-              - Name: "APPCONFIG_SOURCE_FILES"
-              - Name: "APPCONFIG_ENV_SOURCE_FILES"
+              - Name: "SERVICE_SOURCE_FILES"
+              - Name: "SERVICE_ENV_SOURCE_FILES"
               - Name: "APPCONFIG_FREEFORM_VERSION_SECOND_REGION_OUTPUT"
               OutputArtifacts:
               - Name: "APPCONFIG_FREEFORM_DEPLOYMENT_SECOND_REGION_OUTPUT"

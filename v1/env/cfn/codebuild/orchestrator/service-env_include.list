@@ -1,2 +1,4 @@
-v1/env/cfn/ecs/*
+v1/env/cfn/appconfig/configuration-version/*
+v1/env/cfn/appconfig/deployment/*
 v1/env/cfn/cloudfront/*
+v1/env/cfn/ecs/*
