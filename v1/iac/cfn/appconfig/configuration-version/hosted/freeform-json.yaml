@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create an AppConfig JSON Freeform Hosted Configuration Version - (v1.0.0)"
+Description: "Create an AppConfig JSON Freeform Hosted Configuration Version - (v1.0.1)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -32,8 +32,8 @@ Resources:
   AppConfigHostedConfigurationVersion:
     Type: "AWS::AppConfig::HostedConfigurationVersion"
     Properties:
-      ApplicationId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationName}/id}}"
-      ConfigurationProfileId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationName}/configuration-profile/${TagEnvironment}/id}}"
+      ApplicationId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/id}}"
+      ConfigurationProfileId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/configuration-profile/${TagEnvironment}/id}}"
       Description: !Ref Description
       ContentType: "application/json"
       Content: !Sub |
