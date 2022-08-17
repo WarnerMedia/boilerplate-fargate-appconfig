@@ -1,6 +1,6 @@
 {
   "Parameters": {
-    "ApplicationDescription": "Feature Flags",
+    "ApplicationDescription": "Feature Flag Configuration",
     "ProfileType": "feature-flag"
   }
 }
