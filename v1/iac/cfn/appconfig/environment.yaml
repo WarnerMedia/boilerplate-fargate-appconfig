@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create an AppConfig Application Environment - (v1.0.0)"
+Description: "Create an AppConfig Application Environment - (v1.0.1)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -48,7 +48,7 @@ Resources:
     Properties:
       DataType: "text"
       Description: "The AppConfig Application Environment ID."
-      Name: !Sub "/appconfig/${InfrastructureName}/application/${ApplicationName}/${TagEnvironment}/id"
+      Name: !Sub "/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/${TagEnvironment}/id"
       Tier: "Standard"
       Type: "String"
       Value: !Ref AppConfigEnvironment
