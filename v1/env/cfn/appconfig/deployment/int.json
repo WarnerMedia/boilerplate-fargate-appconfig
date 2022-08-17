@@ -1,5 +1,0 @@
-{
-  "Parameters": {
-    "DeploymentStrategy": "AppConfig.AllAtOnce"
-  }
-}

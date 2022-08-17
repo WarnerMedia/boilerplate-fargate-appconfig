@@ -4,7 +4,7 @@
     "ApprovalEnvironment": "qa",
     "CodeBuildRunAppTests": "Yes",
     "CodeBuildRunInfrastructureTests": "Yes",
-    "CodeBuildRunSecurityTests": "Yes",
+    "CodeBuildRunSecurityTests": "No",
     "ServiceEnableCdn": "No",
     "ServiceSourceFile": "service.zip",
     "ServiceEnvSourceFile": "service-env.zip",
