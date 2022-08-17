@@ -160,6 +160,29 @@ Parameters:
     Type: "Number"
     Description: "What is the number of Docker container instances that should be launched?"
     Default: 2
+  # CodePipeline AppConfig Configuration
+  EnableFreeform:
+    Type: "String"
+    Description: "Enable AppConfig Freeform configuration."
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
+  FreeformFormat:
+    Type: "String"
+    Description: "If enabled, what format should the AppConfig Freeform configuration use?"
+    AllowedValues:
+    - "json"
+    - "text"
+    - "yaml"
+    Default: "yaml"
+  EnableFeatureFlag:
+    Type: "String"
+    Description: "Enable AppConfig Feature Flags configuration."
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
   # Tags
   TagEnvironment:
     Type: "String"
@@ -970,6 +993,12 @@ Metadata:
       - ServiceHealthCheckPath
       - ServiceDesiredCount
     - Label:
+        default: "CodePipeline AppConfig Configuration"
+      Parameters:
+      - EnableFreeform
+      - FreeformFormat
+      - EnableFeatureFlag
+    - Label:
         default: "Tags"
       Parameters:
       - TagEnvironment
@@ -1048,6 +1077,13 @@ Metadata:
         default: "Service Health Check Path:"
       ServiceDesiredCount:
         default: "Desired Count:"
+      # AppConfig Configuration
+      EnableFreeform:
+        default: "Enable AppConfig Freeform Configuration:"
+      FreeformFormat:
+        default: "Freeform Format:"
+      EnableFeatureFlag:
+        default: "Enable AppConfig Feature Flags Configuration:"
       # Tags
       TagEnvironment:
         default: "Environment:"

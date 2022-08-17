@@ -9,9 +9,13 @@ Parameters:
   ApplicationName:
     Type: "String"
     Description: "The name of the application."
-  ApplicationType:
+  ProfileType:
     Type: "String"
-    Description: "The type of the application."
+    Description: "The type of configuration profile."
+    AllowedValues:
+    - "feature-flag"
+    - "freeform"
+    Default: "freeform"
   ConfigurationVersion:
     Type: "String"
     Description: "The AppConfig version to deploy."
@@ -37,10 +41,10 @@ Resources:
   AppConfigDeployment:
     Type: "AWS::AppConfig::Deployment"
     Properties:
-      ApplicationId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/id}}"
-      ConfigurationProfileId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/configuration-profile/${TagEnvironment}/id}}"
-      DeploymentStrategyId: !If [ CustomDeploymentStrategy, !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/deployment-strategy/id}}", !Ref DeploymentStrategy ]
-      EnvironmentId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/${TagEnvironment}/id}}"
+      ApplicationId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/id}}"
+      ConfigurationProfileId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/configuration-profile/${TagEnvironment}/id}}"
+      DeploymentStrategyId: !If [ CustomDeploymentStrategy, !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/deployment-strategy/id}}", !Ref DeploymentStrategy ]
+      EnvironmentId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/${TagEnvironment}/id}}"
       ConfigurationVersion: !Ref ConfigurationVersion
       Description: !Ref Description
       Tags:
@@ -70,7 +74,7 @@ Metadata:
       Parameters:
       - InfrastructureName
       - ApplicationName
-      - ApplicationType
+      - ProfileType
       - ConfigurationVersion
       - DeploymentStrategy
       - Description
@@ -83,8 +87,8 @@ Metadata:
         default: "Infrastructure Name:"
       ApplicationName:
         default: "Application Name:"
-      ApplicationType:
-        default: "Application Type:"
+      ProfileType:
+        default: "Profile Type:"
       ConfigurationVersion:
         default: "Configuration Version:"
       DeploymentStrategy:

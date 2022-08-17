@@ -9,9 +9,13 @@ Parameters:
   ApplicationName:
     Type: "String"
     Description: "The name of the application."
-  ApplicationType:
+  ProfileType:
     Type: "String"
-    Description: "The type of the application."
+    Description: "The type of configuration profile."
+    AllowedValues:
+    - "feature-flag"
+    - "freeform"
+    Default: "freeform"
   ApplicationDescription:
     Type: "String"
     Description: "The description of the application."
@@ -19,7 +23,7 @@ Resources:
   AppConfigApplication:
     Type: "AWS::AppConfig::Application"
     Properties:
-      Name: !Sub "${ApplicationName}-${ApplicationType}"
+      Name: !Sub "${ApplicationName}-${ProfileType}"
       Description: !Ref ApplicationDescription
       Tags:
       - Key: "Name"
@@ -39,7 +43,7 @@ Resources:
     Properties:
       DataType: "text"
       Description: "The AppConfig Application ID."
-      Name: !Sub "/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/id"
+      Name: !Sub "/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/id"
       Tier: "Standard"
       Type: "String"
       Value: !Ref AppConfigApplication
@@ -70,7 +74,7 @@ Metadata:
       - InfrastructureName
       - ApplicationName
       - ApplicationDescription
-      - ApplicationType
+      - ProfileType
     ParameterLabels:
       InfrastructureName:
         default: "Infrastructure Name:"
@@ -78,5 +82,5 @@ Metadata:
         default: "Application Name:"
       ApplicationDescription:
         default: "Application Description:"
-      ApplicationType:
-        default: "Application Type:"
+      ProfileType:
+        default: "Profile Type:"

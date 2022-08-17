@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create an AppConfig YAML Freeform Hosted Configuration Version - (v1.0.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  ApplicationName:
+    Type: "String"
+    Description: "The name of the application."
+  ProfileType:
+    Type: "String"
+    Description: "The type of configuration profile."
+    AllowedValues:
+    - "feature-flag"
+    - "freeform"
+    Default: "freeform"
+  Description:
+    Type: "String"
+    Description: "The description of the configuration version."
+  # Profile Configuration
+  ImageUrl:
+    Type: "String"
+    Description: "This is a sample image URL parameter for adding values to the profile configuration."
+    Default: "https://via.placeholder.com/300" # placeholder.com is a free service for using placeholder images.
+  # Tag Configuration
+  TagEnvironment:
+    Type: "String"
+    Description: "Which environment are we deploying to?"
+Resources:
+  AppConfigHostedConfigurationVersion:
+    Type: "AWS::AppConfig::HostedConfigurationVersion"
+    Properties:
+      ApplicationId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationName}/id}}"
+      ConfigurationProfileId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationName}/configuration-profile/${TagEnvironment}/id}}"
+      Description: !Ref Description
+      ContentType: "application/x-yaml" #This is the mime type that the console sets when creating YAML configurations, so sticking with it.
+      Content: !Sub |
+        Body:
+          Image: "${ImageUrl}"
+  ParamAppConfigHostedConfigurationVersionId:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      DataType: "text"
+      Description: "The AppConfig hosted configuration version ID."
+      Name: !Sub "/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/configuration-version/hosted/${TagEnvironment}/id"
+      Tier: "Standard"
+      Type: "String"
+      Value: !Ref AppConfigHostedConfigurationVersion
+      Tags:
+        Name: !Ref "AWS::StackName"
+        application: !Ref "AWS::StackName"
+        customer: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+        contact-email: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+        environment: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/environment}}"
+        team: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  AppConfigHostedConfigurationVersion:
+    Description: "The ID of the application hosted configuration version."
+    Value: !Ref AppConfigHostedConfigurationVersion
+    Export:
+      Name: !Sub "${AWS::StackName}-AppConfigHostedConfigurationVersion"
+  ParamAppConfigHostedConfigurationVersionId:
+    Description: "The application hosted configuration version ID SSM parameter."
+    Value: !Ref ParamAppConfigHostedConfigurationVersionId
+    Export:
+      Name: !Sub "${AWS::StackName}-ParamAppConfigHostedConfigurationVersionId"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+      - ApplicationName
+      - ProfileType
+      - Description
+    - Label:
+        default: "Profile Configuration"
+      Parameters:
+      - ImageUrl
+    - Label:
+        default: "Tag Configuration"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      ApplicationName:
+        default: "Application Name:"
+      ProfileType:
+        default: "Profile Type:"
+      Description:
+        default: "Environment Description:"
+      # Profile Configuration
+      ImageUrl:
+        default: "Image URL:"
+      # Tag Configuration
+      TagEnvironment:
+        default: "Environment:"

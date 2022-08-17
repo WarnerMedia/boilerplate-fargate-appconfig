@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create an AppConfig Application Environment - (v1.0.0)"
+Description: "Create an AppConfig JSON Freeform Hosted Configuration Version - (v1.0.0)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -18,40 +18,39 @@ Parameters:
     Default: "freeform"
   Description:
     Type: "String"
-    Description: "The description of the application."
+    Description: "The description of the configuration version."
+  # Profile Configuration
+  ImageUrl:
+    Type: "String"
+    Description: "This is a sample image URL parameter for adding values to the profile configuration."
+    Default: "https://via.placeholder.com/300" # placeholder.com is a free service for using placeholder images.
   # Tag Configuration
   TagEnvironment:
     Type: "String"
     Description: "Which environment are we deploying to?"
 Resources:
-  AppConfigEnvironment:
-    Type: "AWS::AppConfig::Environment"
+  AppConfigHostedConfigurationVersion:
+    Type: "AWS::AppConfig::HostedConfigurationVersion"
     Properties:
-      ApplicationId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/id}}"
-      Name: !Ref TagEnvironment
+      ApplicationId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationName}/id}}"
+      ConfigurationProfileId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationName}/configuration-profile/${TagEnvironment}/id}}"
       Description: !Ref Description
-      Tags:
-      - Key: "Name"
-        Value: !Ref "AWS::StackName"
-      - Key: "application"
-        Value: !Ref "AWS::StackName"
-      - Key: "contact-email"
-        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
-      - Key: "customer"
-        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
-      - Key: "environment"
-        Value: !Ref TagEnvironment
-      - Key: "team"
-        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
-  ParamAppConfigEnvironmentId:
+      ContentType: "application/json"
+      Content: !Sub |
+        {
+            "body": {
+                "image": "${ImageUrl}"
+            }
+        }
+  ParamAppConfigHostedConfigurationVersionId:
     Type: "AWS::SSM::Parameter"
     Properties:
       DataType: "text"
-      Description: "The AppConfig Application Environment ID."
-      Name: !Sub "/appconfig/${InfrastructureName}/application/${ApplicationName}/${TagEnvironment}/id"
+      Description: "The AppConfig hosted configuration version ID."
+      Name: !Sub "/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/configuration-version/hosted/${TagEnvironment}/id"
       Tier: "Standard"
       Type: "String"
-      Value: !Ref AppConfigEnvironment
+      Value: !Ref AppConfigHostedConfigurationVersion
       Tags:
         Name: !Ref "AWS::StackName"
         application: !Ref "AWS::StackName"
@@ -60,16 +59,16 @@ Resources:
         environment: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/environment}}"
         team: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
 Outputs:
-  AppConfigEnvironment:
-    Description: "The ID of the application environment."
-    Value: !Ref AppConfigEnvironment
+  AppConfigHostedConfigurationVersion:
+    Description: "The ID of the application hosted configuration version."
+    Value: !Ref AppConfigHostedConfigurationVersion
     Export:
-      Name: !Sub "${AWS::StackName}-AppConfigEnvironment"
-  ParamAppConfigEnvironmentId:
-    Description: "The application environment ID SSM parameter."
-    Value: !Ref ParamAppConfigEnvironmentId
+      Name: !Sub "${AWS::StackName}-AppConfigHostedConfigurationVersion"
+  ParamAppConfigHostedConfigurationVersionId:
+    Description: "The application hosted configuration version ID SSM parameter."
+    Value: !Ref ParamAppConfigHostedConfigurationVersionId
     Export:
-      Name: !Sub "${AWS::StackName}-ParamAppConfigEnvironmentId"
+      Name: !Sub "${AWS::StackName}-ParamAppConfigHostedConfigurationVersionId"
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -80,6 +79,10 @@ Metadata:
       - ApplicationName
       - ProfileType
       - Description
+    - Label:
+        default: "Profile Configuration"
+      Parameters:
+      - ImageUrl
     - Label:
         default: "Tag Configuration"
       Parameters:
@@ -93,6 +96,9 @@ Metadata:
         default: "Profile Type:"
       Description:
         default: "Environment Description:"
+      # Profile Configuration
+      ImageUrl:
+        default: "Image URL:"
       # Tag Configuration
       TagEnvironment:
         default: "Environment:"

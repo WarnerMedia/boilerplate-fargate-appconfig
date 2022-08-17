@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create an AppConfig Hosted Configuration Version - (v1.3.0)"
+Description: "Create an AppConfig JSON Feature Flag Hosted Configuration Version - (v1.0.0)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -9,9 +9,13 @@ Parameters:
   ApplicationName:
     Type: "String"
     Description: "The name of the application."
-  ApplicationType:
+  ProfileType:
     Type: "String"
-    Description: "The type of the application."
+    Description: "The type of configuration profile."
+    AllowedValues:
+    - "feature-flag"
+    - "freeform"
+    Default: "freeform"
   Description:
     Type: "String"
     Description: "The description of the configuration version."
@@ -45,8 +49,8 @@ Resources:
   AppConfigHostedConfigurationVersion:
     Type: "AWS::AppConfig::HostedConfigurationVersion"
     Properties:
-      ApplicationId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationName}/id}}"
-      ConfigurationProfileId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ApplicationName}/configuration-profile/${TagEnvironment}/id}}"
+      ApplicationId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/id}}"
+      ConfigurationProfileId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/configuration-profile/${TagEnvironment}/id}}"
       Description: !Ref Description
       ContentType: "application/json"
       Content: !Sub |
@@ -184,7 +188,7 @@ Resources:
     Properties:
       DataType: "text"
       Description: "The AppConfig hosted configuration version ID."
-      Name: !Sub "/appconfig/${InfrastructureName}/application/${ApplicationType}/${ApplicationName}/configuration-version/hosted/${TagEnvironment}/id"
+      Name: !Sub "/appconfig/${InfrastructureName}/application/${ProfileType}/${ApplicationName}/configuration-version/hosted/${TagEnvironment}/id"
       Tier: "Standard"
       Type: "String"
       Value: !Ref AppConfigHostedConfigurationVersion
@@ -214,7 +218,7 @@ Metadata:
       Parameters:
       - InfrastructureName
       - ApplicationName
-      - ApplicationType
+      - ProfileType
       - Description
     - Label:
         default: "Flag Configuration"
@@ -231,8 +235,8 @@ Metadata:
         default: "Infrastructure Name:"
       ApplicationName:
         default: "Application Name:"
-      ApplicationType:
-        default: "Application Type:"
+      ProfileType:
+        default: "Profile Type:"
       Description:
         default: "Environment Description:"
       # Flag Configuration

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create the orchestrator setup CodePipeline - (v1.2.0)"
+Description: "Create the orchestrator setup CodePipeline - (v1.3.0)"
 Parameters:
   InfrastructureName:
     Type: "String"
@@ -95,16 +95,24 @@ Parameters:
     Description: "What is the name of the function used to send out Slack notifications?"
     Default: "codepipeline-slack-notification-prod"
   # CodePipeline AppConfig Configuration
-  EnableAppConfig:
+  EnableFreeform:
     Type: "String"
-    Description: "Enable AppConfig Profile."
+    Description: "Enable AppConfig Freeform configuration."
     AllowedValues:
     - "Yes"
     - "No"
     Default: "Yes"
+  FreeformFormat:
+    Type: "String"
+    Description: "If enabled, what format should the AppConfig Freeform configuration use?"
+    AllowedValues:
+    - "json"
+    - "text"
+    - "yaml"
+    Default: "yaml"
   EnableFeatureFlag:
     Type: "String"
-    Description: "Enable AppConfig Feature Flags."
+    Description: "Enable AppConfig Feature Flags configuration."
     AllowedValues:
     - "Yes"
     - "No"
@@ -595,7 +603,8 @@ Resources:
                 "ServiceSubdomain": "${ServiceSubdomain}",
                 "ActionMode": "${ActionMode}",
                 "ServiceActionMode": "${ServiceActionMode}",
-                "EnableAppConfig": "${EnableAppConfig}",
+                "EnableFreeform": "${EnableFreeform}",
+                "FreeformFormat": "${FreeformFormat}",
                 "EnableFeatureFlag": "${EnableFeatureFlag}",
                 "SecondRegion": "${SecondRegion}",
                 "UnstableEnvironment": "${UnstableEnvironment}",
@@ -704,7 +713,8 @@ Metadata:
     - Label:
         default: "CodePipeline AppConfig Configuration"
       Parameters:
-      - EnableAppConfig
+      - EnableFreeform
+      - FreeformFormat
       - EnableFeatureFlag
     - Label:
         default: "Source Configuration"
@@ -786,10 +796,13 @@ Metadata:
         default: "Enable E-mail and Slack Notifications:"
       SlackNotificationLambda:
         default: "Slack Notification Lambda Name:"
-      EnableAppConfig:
-        default: "Enable AppConfig:"
+      # AppConfig Configuration
+      EnableFreeform:
+        default: "Enable AppConfig Freeform Configuration:"
+      FreeformFormat:
+        default: "Freeform Format:"
       EnableFeatureFlag:
-        default: "Enable AppConfig Feature Flags:"
+        default: "Enable AppConfig Feature Flags Configuration:"
       # Source Configuration
       GitHubBuildAgentAccountId:
         default: "GitHub Build Agent Account ID:"
