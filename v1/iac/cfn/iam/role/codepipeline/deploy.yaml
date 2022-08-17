@@ -40,6 +40,10 @@ Resources:
           - Resource: "*"
             Effect: "Allow"
             Action:
+            - "appconfig:*"
+          - Resource: "*"
+            Effect: "Allow"
+            Action:
             - "cloudwatch:*"
           - Resource: "*"
             Effect: "Allow"

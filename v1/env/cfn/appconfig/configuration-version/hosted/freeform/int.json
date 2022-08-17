@@ -1,5 +1,5 @@
 {
   "Parameters": {
-    "FlagShortTermFeature": "true"
+    "Description": "Freeform hosted configuration version for the Integration environment."
   }
 }

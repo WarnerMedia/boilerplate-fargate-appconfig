@@ -1,0 +1,6 @@
+{
+  "Parameters": {
+    "DeploymentStrategy": "AppConfig.AllAtOnce",
+    "Description": "Freeform deployment for the Integration environment."
+  }
+}

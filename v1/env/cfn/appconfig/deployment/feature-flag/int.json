@@ -1,0 +1,6 @@
+{
+  "Parameters": {
+    "DeploymentStrategy": "AppConfig.AllAtOnce",
+    "Description": "Feature Flag deployment for the Integration environment."
+  }
+}

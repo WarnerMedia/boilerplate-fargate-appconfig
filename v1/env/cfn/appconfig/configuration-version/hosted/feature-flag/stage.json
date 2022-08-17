@@ -1,4 +1,5 @@
 {
   "Parameters": {
+    "Description": "Feature Flag hosted configuration version for the Staging environment."
   }
 }

@@ -1,5 +1,6 @@
 {
   "Parameters": {
-    "FlagShortTermFeature": "true"
+    "FlagShortTermFeature": "true",
+    "Description": "Feature Flag hosted configuration version for the Integration environment."
   }
 }

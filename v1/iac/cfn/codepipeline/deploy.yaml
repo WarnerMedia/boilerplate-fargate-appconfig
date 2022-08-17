@@ -53,6 +53,10 @@ Parameters:
     - "DELETE_ONLY"
     - "REPLACE_ON_FAILURE"
     Default: "CREATE_UPDATE"
+  CloudFormationCapabilities:
+    Type: "String"
+    Description: "A list of the capabilities that CloudFormation should have when executing stacks via CodePipeline."
+    Default: "CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND"
   # CodePipeline Notification Configuration
   EnableNotifications:
     Type: "String"
@@ -201,6 +205,8 @@ Conditions:
   CodeBuildRunInfrastructureTests: !Equals [ !Ref CodeBuildRunInfrastructureTests, "Yes" ]
   CodeBuildRunSecurityTests: !Equals [ !Ref CodeBuildRunSecurityTests, "Yes" ]
   EnableEnvironmentDnsPattern: !Equals [ !Ref EnableEnvironmentDnsPattern, "Yes" ]
+  EnableFreeform: !Equals [ !Ref EnableFreeform, "Yes" ]
+  EnableFeatureFlag: !Equals [ !Ref EnableFeatureFlag, "Yes" ]
   EnableNotifications: !Equals [ !Ref EnableNotifications, "Yes" ]
   Production: !Equals [ !Ref TagEnvironment, "prod" ]
   SecondRegion: !Not [ !Equals [ !Ref SecondRegion, "NONE" ] ]
@@ -320,6 +326,163 @@ Resources:
           OutputArtifacts:
           - Name: "TEST_SOURCE_FILES"
           RunOrder: 1
+
+      # AppConfig Freeform Configuration
+
+      - !If
+        - EnableFreeform
+        - Name: "AppConfig_Freeform_Deploy"
+          Actions:
+          - Name: "AppConfig_Freeform_Version_First_Region"
+            Namespace: "PrimaryAppConfigFreeformVersion"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-appconfig-freeform-version-${ProjectName}-${TagEnvironment}"
+              Capabilities: !Ref CloudFormationCapabilities
+              TemplatePath:
+                Fn::Sub:
+                - "APPCONFIG_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-version/hosted/freeform-${FreeformFormat}.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "APPCONFIG_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-version/hosted/freeform/${TagEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${ProjectName}/deploy/arn}}"
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ApplicationName": "${BaseProjectName}",
+                  "TagEnvironment": "${TagEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "APPCONFIG_SOURCE_FILES"
+            - Name: "APPCONFIG_ENV_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "APPCONFIG_FREEFORM_VERSION_FIRST_REGION_OUTPUT"
+            RunOrder: 1
+            Region: !Ref "AWS::Region"
+          - !If
+            - SecondRegion
+            - Name: "AppConfig_Freeform_Version_Secondary_Region"
+              Namespace: "SecondaryAppConfigFreeformVersion"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-version-${ProjectName}-${TagEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "APPCONFIG_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-version/hosted/freeform-${FreeformFormat}.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "APPCONFIG_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-version/hosted/freeform/${TagEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${ProjectName}/deploy/arn}}"
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${BaseProjectName}",
+                    "TagEnvironment": "${TagEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "APPCONFIG_SOURCE_FILES"
+              - Name: "APPCONFIG_ENV_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: "APPCONFIG_FREEFORM_VERSION_SECOND_REGION_OUTPUT"
+              RunOrder: 1
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - Name: "AppConfig_Freeform_Deployment_First_Region"
+            Namespace: "PrimaryAppConfigFreeformDeployment"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-appconfig-freeform-deployment-${ProjectName}-${TagEnvironment}"
+              Capabilities: !Ref CloudFormationCapabilities
+              TemplatePath:
+                Fn::Sub:
+                - "APPCONFIG_SOURCE_FILES::${Folder}iac/cfn/appconfig/deployment.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "APPCONFIG_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/deployment/freeform/${TagEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${ProjectName}/deploy/arn}}"
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ApplicationName": "${BaseProjectName}",
+                  "ConfigurationVersion": { "Fn::GetParam" : [ "APPCONFIG_FREEFORM_VERSION_FIRST_REGION_OUTPUT", "out.json", "AppConfigHostedConfigurationVersion" ] },
+                  "TagEnvironment": "${TagEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "APPCONFIG_SOURCE_FILES"
+            - Name: "APPCONFIG_ENV_SOURCE_FILES"
+            - Name: "APPCONFIG_FREEFORM_VERSION_FIRST_REGION_OUTPUT"
+            OutputArtifacts:
+            - Name: "APPCONFIG_FREEFORM_DEPLOYMENT_FIRST_REGION_OUTPUT"
+            RunOrder: 2
+            Region: !Ref "AWS::Region"
+          - !If
+            - SecondRegion
+            - Name: "AppConfig_Freeform_Deployment_Secondary_Region"
+              Namespace: "SecondaryAppConfigFreeformDeployment"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-freeform-deployment-${ProjectName}-${TagEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "APPCONFIG_SOURCE_FILES::${Folder}iac/cfn/appconfig/deployment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "APPCONFIG_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/deployment/freeform/${TagEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${ProjectName}/deploy/arn}}"
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${BaseProjectName}",
+                    "ConfigurationVersion": { "Fn::GetParam" : [ "APPCONFIG_FREEFORM_VERSION_SECOND_REGION_OUTPUT", "out.json", "AppConfigHostedConfigurationVersion" ] },
+                    "TagEnvironment": "${TagEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "APPCONFIG_SOURCE_FILES"
+              - Name: "APPCONFIG_ENV_SOURCE_FILES"
+              - Name: "APPCONFIG_FREEFORM_VERSION_SECOND_REGION_OUTPUT"
+              OutputArtifacts:
+              - Name: "APPCONFIG_FREEFORM_DEPLOYMENT_SECOND_REGION_OUTPUT"
+              RunOrder: 2
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+        - !Ref "AWS::NoValue"
+
+
+
       - !If
         - CodeBuildRunSecurityTests
         - Name: "Test_Security"
@@ -943,6 +1106,7 @@ Metadata:
       - ProjectName
       - AppBaseFolder
       - ActionMode
+      - CloudFormationCapabilities
     - Label:
         default: "CodePipeline Notification Configuration"
       Parameters:
@@ -1026,6 +1190,8 @@ Metadata:
         default: "CodePipeline Application Base Folder:"
       ActionMode:
         default: "CodePipeline CloudFormation Action Mode:"
+      CloudFormationCapabilities:
+        default: "CloudFormation Capabilities:"
       # CodePipeline Notification Configuration
       EnableNotifications:
         default: "Enable E-mail and Slack Notifications:"
