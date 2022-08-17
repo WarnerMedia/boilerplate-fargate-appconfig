@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create an IAM Role for deploy CodePipelines - (v1.1.0)"
+Description: "Create an IAM Role for deploy CodePipelines - (v1.1.1)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -84,6 +84,22 @@ Resources:
             Effect: "Allow"
             Action:
             - "logs:*"
+          - Effect: "Allow"
+            Action:
+            - "ssm:AddTagsToResource"
+            - "ssm:DeleteParameter"
+            - "ssm:DeleteParameters"
+            - "ssm:DescribeDocumentParameters"
+            - "ssm:DescribeParameters"
+            - "ssm:GetParameter"
+            - "ssm:GetParameterHistory"
+            - "ssm:GetParameters"
+            - "ssm:GetParametersByPath"
+            - "ssm:LabelParameterVersion"
+            - "ssm:ListTagsForResource"
+            - "ssm:PutParameter"
+            - "ssm:RemoveTagsFromResource"
+            Resource: "*"
       ManagedPolicyArns:
       - "arn:aws:iam::aws:policy/AWSCloudFormationFullAccess"
       - "arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess"
