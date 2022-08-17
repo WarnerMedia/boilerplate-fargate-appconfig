@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create an AppConfig Deployment Strategy - (v1.1.0)"
+Description: "Create an AppConfig Deployment Strategy - (v1.2.0)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -19,7 +19,7 @@ Parameters:
   DeploymentName:
     Type: "String"
     Description: "The name of the deployment strategy."
-    Default: "Custom.Immediate.Bake5Mins"
+    Default: "Immediate.Bake5Mins"
   Description:
     Type: "String"
     Description: "The description of the deployment strategy."
@@ -55,7 +55,7 @@ Resources:
   AppConfigDeploymentStrategy:
     Type: "AWS::AppConfig::DeploymentStrategy"
     Properties:
-      Name: !Ref DeploymentName
+      Name: !Sub "Custom.${ProfileType}.${DeploymentName}"
       Description: !Ref Description
       DeploymentDurationInMinutes: !Ref DeploymentDuration
       FinalBakeTimeInMinutes: !Ref FinalBakeTime
