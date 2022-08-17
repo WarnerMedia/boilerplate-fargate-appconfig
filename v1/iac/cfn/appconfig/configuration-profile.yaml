@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create an AppConfig Configuration Profile - (v1.2.0)"
+Description: "Create an AppConfig Configuration Profile - (v1.3.0)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -27,6 +27,8 @@ Parameters:
   TagEnvironment:
     Type: "String"
     Description: "Which environment are we deploying to?"
+Conditions:
+  FeatureFlag: !Equals [ !Ref ProfileType, "feature-flag" ]
 Resources:
   AppConfigConfigurationProfile:
     Type: "AWS::AppConfig::ConfigurationProfile"
@@ -36,7 +38,7 @@ Resources:
       Name: !Ref TagEnvironment
       Description: !Ref Description
       LocationUri: "hosted"
-      Type: "AWS.AppConfig.FeatureFlags"
+      Type: !If [ FeatureFlag, "AWS.AppConfig.FeatureFlags", "AWS.Freeform" ]
       Tags:
       - Key: "Name"
         Value: !Ref "AWS::StackName"
