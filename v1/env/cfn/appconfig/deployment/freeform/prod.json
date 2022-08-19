@@ -1,5 +1,6 @@
 {
   "Parameters": {
+    "DeploymentStrategy": "Custom",
     "Description": "Freeform deployment for the Production environment."
   }
 }

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create an AppConfig Deployment Strategy - (v1.2.1)"
+Description: "Create an AppConfig Deployment Strategy - (v1.2.2)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -19,7 +19,7 @@ Parameters:
   DeploymentName:
     Type: "String"
     Description: "The name of the deployment strategy."
-    Default: "Immediate.Bake5Mins"
+    Default: "Immediate.ZeroBake"
   Description:
     Type: "String"
     Description: "The description of the deployment strategy."
@@ -32,11 +32,11 @@ Parameters:
   FinalBakeTime:
     Type: "Number"
     Description: "The final bake time (in minutes)."
-    Default: 5
+    Default: 0
   GrowthFactor:
     Type: "Number"
     Description: "The growth factor."
-    Default: 10
+    Default: 100
   GrowthType:
     Type: "String"
     Description: "Should we use linear or exponential growth."

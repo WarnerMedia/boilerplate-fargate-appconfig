@@ -1,5 +1,6 @@
 {
   "Parameters": {
+    "DeploymentStrategy": "Custom",
     "Description": "Feature Flag deployment for the Quality Assurance environment."
   }
 }

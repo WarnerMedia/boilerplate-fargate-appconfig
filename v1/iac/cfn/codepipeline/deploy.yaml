@@ -481,7 +481,161 @@ Resources:
             - !Ref "AWS::NoValue"
         - !Ref "AWS::NoValue"
 
+      # AppConfig Feature Flag Configuration
 
+      - !If
+        - EnableFeatureFlag
+        - Name: "AppConfig_Feature_Flag_Deploy"
+          Actions:
+          - Name: "AppConfig_Feature_Flag_Version_First_Region"
+            Namespace: "PrimaryAppConfigFeatureFlagVersion"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-version-${ProjectName}-${TagEnvironment}"
+              Capabilities: !Ref CloudFormationCapabilities
+              TemplatePath:
+                Fn::Sub:
+                - "SERVICE_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-version/hosted/feature-flag.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "SERVICE_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-version/hosted/feature-flag/${TagEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${ProjectName}/deploy/arn}}"
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ApplicationName": "${BaseProjectName}",
+                  "TagEnvironment": "${TagEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "SERVICE_SOURCE_FILES"
+            - Name: "SERVICE_ENV_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "APPCONFIG_FEATURE_FLAG_VERSION_FIRST_REGION_OUTPUT"
+            RunOrder: 1
+            Region: !Ref "AWS::Region"
+          - !If
+            - SecondRegion
+            - Name: "AppConfig_Feature_Flag_Version_Secondary_Region"
+              Namespace: "SecondaryAppConfigFeatureFlagVersion"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-version-${ProjectName}-${TagEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "SERVICE_SOURCE_FILES::${Folder}iac/cfn/appconfig/configuration-version/hosted/feature-flag.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "SERVICE_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/configuration-version/hosted/feature-flag/${TagEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${ProjectName}/deploy/arn}}"
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${BaseProjectName}",
+                    "TagEnvironment": "${TagEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "SERVICE_SOURCE_FILES"
+              - Name: "SERVICE_ENV_SOURCE_FILES"
+              OutputArtifacts:
+              - Name: "APPCONFIG_FEATURE_FLAG_VERSION_SECOND_REGION_OUTPUT"
+              RunOrder: 1
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+          - Name: "AppConfig_Feature_Flag_Deployment_First_Region"
+            Namespace: "PrimaryAppConfigFeatureFlagDeployment"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-deployment-${ProjectName}-${TagEnvironment}"
+              Capabilities: !Ref CloudFormationCapabilities
+              TemplatePath:
+                Fn::Sub:
+                - "SERVICE_SOURCE_FILES::${Folder}iac/cfn/appconfig/deployment.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "SERVICE_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/deployment/feature-flag/${TagEnvironment}.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${ProjectName}/deploy/arn}}"
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ApplicationName": "${BaseProjectName}",
+                  "ConfigurationVersion": { "Fn::GetParam" : [ "APPCONFIG_FEATURE_FLAG_VERSION_FIRST_REGION_OUTPUT", "out.json", "AppConfigHostedConfigurationVersion" ] },
+                  "TagEnvironment": "${TagEnvironment}"
+                }
+            InputArtifacts:
+            - Name: "SERVICE_SOURCE_FILES"
+            - Name: "SERVICE_ENV_SOURCE_FILES"
+            - Name: "APPCONFIG_FEATURE_FLAG_VERSION_FIRST_REGION_OUTPUT"
+            OutputArtifacts:
+            - Name: "APPCONFIG_FEATURE_FLAG_DEPLOYMENT_FIRST_REGION_OUTPUT"
+            RunOrder: 2
+            Region: !Ref "AWS::Region"
+          - !If
+            - SecondRegion
+            - Name: "AppConfig_Feature_Flag_Deployment_Secondary_Region"
+              Namespace: "SecondaryAppConfigFeatureFlagDeployment"
+              ActionTypeId:
+                Category: "Deploy"
+                Owner: "AWS"
+                Provider: "CloudFormation"
+                Version: "1"
+              Configuration:
+                ActionMode: !Ref ActionMode
+                StackName: !Sub "${InfrastructureName}-appconfig-feature-flag-deployment-${ProjectName}-${TagEnvironment}"
+                Capabilities: !Ref CloudFormationCapabilities
+                TemplatePath:
+                  Fn::Sub:
+                  - "SERVICE_SOURCE_FILES::${Folder}iac/cfn/appconfig/deployment.yaml"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                TemplateConfiguration:
+                  Fn::Sub:
+                  - "SERVICE_ENV_SOURCE_FILES::${Folder}env/cfn/appconfig/deployment/feature-flag/${TagEnvironment}.json"
+                  - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+                RoleArn: !Sub "{{resolve:ssm:/iam/${InfrastructureName}/role/codepipeline/${ProjectName}/deploy/arn}}"
+                OutputFileName: "out.json"
+                ParameterOverrides: !Sub |
+                  {
+                    "InfrastructureName": "${InfrastructureName}",
+                    "ApplicationName": "${BaseProjectName}",
+                    "ConfigurationVersion": { "Fn::GetParam" : [ "APPCONFIG_FEATURE_FLAG_VERSION_SECOND_REGION_OUTPUT", "out.json", "AppConfigHostedConfigurationVersion" ] },
+                    "TagEnvironment": "${TagEnvironment}"
+                  }
+              InputArtifacts:
+              - Name: "SERVICE_SOURCE_FILES"
+              - Name: "SERVICE_ENV_SOURCE_FILES"
+              - Name: "APPCONFIG_FEATURE_FLAG_VERSION_SECOND_REGION_OUTPUT"
+              OutputArtifacts:
+              - Name: "APPCONFIG_FEATURE_FLAG_DEPLOYMENT_SECOND_REGION_OUTPUT"
+              RunOrder: 2
+              Region: !Ref SecondRegion
+            - !Ref "AWS::NoValue"
+        - !Ref "AWS::NoValue"
+
+      # CodeBuild Run Security Tests and Application Tests
 
       - !If
         - CodeBuildRunSecurityTests
@@ -613,6 +767,9 @@ Resources:
               Region: !Ref SecondRegion
             - !Ref "AWS::NoValue"
         - !Ref "AWS::NoValue"
+
+      # Deploy Service Tasks
+
       - Name: "Deploy"
         Actions:
         - Name: "Deploy_Service_Task_Primary_Region"
@@ -696,6 +853,9 @@ Resources:
             RunOrder: 1
             Region: !Ref SecondRegion
           - !Ref "AWS::NoValue"
+
+      # Deploy Fargate Services
+
         - Name: "Deploy_Service_Primary_Region"
           ActionTypeId:
             Category: "Deploy"
@@ -793,6 +953,9 @@ Resources:
             RunOrder: 2
             Region: !Ref SecondRegion
           - !Ref "AWS::NoValue"
+
+      # CodeBuild Infrastructure Tests
+
         - !If
           - CodeBuildRunInfrastructureTests
           - Name: "Run_Test_Build_Primary_Region"
@@ -878,6 +1041,9 @@ Resources:
             RunOrder: 3
             Region: !Ref SecondRegion
           - !Ref "AWS::NoValue"
+
+      # Enabled CloudFront CDN
+
         - !If
           - ServiceEnableCdn
           - Name: "Content_Delivery_Network"
@@ -920,6 +1086,9 @@ Resources:
             RunOrder: 4
             Region: "us-east-1"
           - !Ref "AWS::NoValue"
+
+      # Approval and Promotion Steps
+
         - !If
           - ApprovalEnvironment
           - Name: "Approval"
