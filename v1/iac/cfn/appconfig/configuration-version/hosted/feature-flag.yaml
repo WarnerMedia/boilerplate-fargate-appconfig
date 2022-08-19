@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create an AppConfig JSON Feature Flag Hosted Configuration Version - (v1.0.0)"
+Description: "Create an AppConfig JSON Feature Flag Hosted Configuration Version - (v1.0.1)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -15,7 +15,7 @@ Parameters:
     AllowedValues:
     - "feature-flag"
     - "freeform"
-    Default: "freeform"
+    Default: "feature-flag"
   Description:
     Type: "String"
     Description: "The description of the configuration version."
