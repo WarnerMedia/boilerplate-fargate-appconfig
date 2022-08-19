@@ -1,6 +1,7 @@
 {
   "Parameters": {
     "DeploymentStrategy": "Custom",
-    "Description": "Feature Flag deployment for the Integration environment."
+    "Description": "Feature Flag deployment for the Integration environment.",
+    "ProfileType": "feature-flag"
   }
 }

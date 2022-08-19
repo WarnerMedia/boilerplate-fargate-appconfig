@@ -1,6 +1,7 @@
 {
   "Parameters": {
     "DeploymentStrategy": "Custom",
-    "Description": "Feature Flag deployment for the Production environment."
+    "Description": "Feature Flag deployment for the Production environment.",
+    "ProfileType": "feature-flag"
   }
 }
