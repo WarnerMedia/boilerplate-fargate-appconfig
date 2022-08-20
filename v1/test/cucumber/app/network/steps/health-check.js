@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { When, Then } = require('cucumber');
-const got = require('got');
+import got from 'got';
 
 When('we request the health check route: {string}', async (url) => {
   const options = {
