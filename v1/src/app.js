@@ -1,65 +1,367 @@
 //Set Modules
-var auth = require("basic-auth"), /* Basic Authentication Module */
+const auth = require("basic-auth"), /* Basic Authentication Module */
+    { AppConfigDataClient,
+      BadRequestException,
+      GetLatestConfigurationCommand,
+      StartConfigurationSessionCommand } = require("@aws-sdk/client-appconfigdata"), //AWS AppConfig Classes
     fs = require("fs"), /* File System Module */
     http = require("http"), /* Simple HTTP Server Module */
+    path = require("path"),
+    template = require("es6-template-strings"), /* Simple templating solution */
     url = require("url"), /* URL Parsing */
-    global = this;
+    YAML = require("yaml"); /* YAML parsing */
 
 //Main Constants
-const APPLICATION_TITLE=process.env.APPLICATION_TITLE || "DEFAULT";
-const ENVIRONMENT=process.env.ENVIRONMENT || "NONE";
-const REGION=process.env.REGION || "NONE";
-const HEALTH_CHECK_PATH=process.env.HEALTH_CHECK_PATH || "/hc/";
-const HOSTNAME=process.env.HOSTNAME || "localhost";
-const LOGIN=process.env.LOGIN || "DEFAULT";
-const PASSWD=process.env.PASSWD || "DEFAULT";
-const PORT=process.env.PORT || 8080;
+const ENVIRONMENT=process.env.ENVIRONMENT || "NONE",
+      REGION=process.env.REGION || "NONE",
+      HEALTH_CHECK_PATH=process.env.HEALTH_CHECK_PATH || "/hc/",
+      HOSTNAME=process.env.HOSTNAME || "localhost",
+      LOGIN=process.env.LOGIN || "DEFAULT",
+      PASSWD=process.env.PASSWD || "DEFAULT",
+      PORT=process.env.PORT || 8080,
+      APP_CONFIG_REGION = process.env.APP_CONFIG_REGION || "us-east-2",
+      APP_CONFIG_FEATURE_FLAG_APP_IDENTIFIER = process.env.APP_CONFIG_FEATURE_FLAG_APP_IDENTIFIER || "boilerplate-fargate-appconfig-feature-flag",
+      APP_CONFIG_FREEFORM_APP_IDENTIFIER = process.env.APP_CONFIG_FREEFORM_APP_IDENTIFIER || "boilerplate-fargate-appconfig-freeform",
+      APP_CONFIG_CONFIG_PROFILE_IDENTIFIER = process.env.APP_CONFIG_CONFIG_PROFILE_IDENTIFIER || "int",
+      APP_CONFIG_ENVIRONMENT_IDENTIFIER = process.env.APP_CONFIG_ENVIRONMENT_IDENTIFIER || "int";
 
+//Force a specific AWS profile for development.
+//process.env.AWS_PROFILE = "<profile>";
+
+// AppConfig client (which can be shared by different commands).
+const client = new AppConfigDataClient({ region: APP_CONFIG_REGION });
+
+// Parameters for the AppConfig sessions.
+const appConfigFeatureFlag = {
+  ApplicationIdentifier: APP_CONFIG_FEATURE_FLAG_APP_IDENTIFIER,
+  ConfigurationProfileIdentifier: APP_CONFIG_CONFIG_PROFILE_IDENTIFIER,
+  EnvironmentIdentifier: APP_CONFIG_ENVIRONMENT_IDENTIFIER
+};
+
+const appConfigFreeform = {
+  ApplicationIdentifier: APP_CONFIG_FREEFORM_APP_IDENTIFIER,
+  ConfigurationProfileIdentifier: APP_CONFIG_CONFIG_PROFILE_IDENTIFIER,
+  EnvironmentIdentifier: APP_CONFIG_ENVIRONMENT_IDENTIFIER
+};
+
+// New instance for getting an AppConfig session token.
+const getFeatureFlagSession = new StartConfigurationSessionCommand(appConfigFeatureFlag),
+      getFreeformSession = new StartConfigurationSessionCommand(appConfigFreeform);
+
+//Global Variables
+let existingFeatureFlagToken,
+    existingFreeformToken,
+    global = this,
+    htmlFiles = {};
+
+//Set a couple of base global objects.
+global.flags = {};
+global.config = {};
 
 //Main Functions
+
+function checkFeatureFlags() {
+  Promise.all([getFeatureFlags()]).then(startService,failure);
+}
+
+function checkFreeformConfig() {
+  Promise.all([getFreeformConfig()]).then(checkFeatureFlags,failure);
+}
+
+// Fail the initialization if the promises fail.
+function failure(error) {
+
+  console.error(error);
+  return;
+
+}
+
+// Get a single feature flag.
+function getFeatureFlag(flag) {
+
+  if (global.flags && flag) {
+
+    return global.flags[flag];
+
+  } else {
+
+    return {};
+
+  }
+
+}
+
+// Get all feature flags for this application and environment.
+function getFeatureFlags() {
+
+  console.info("Getting Feature Flag Config...");
+
+  async function _asyncFeatureFlags() {
+
+    if (!existingFeatureFlagToken) {
+
+      existingFeatureFlagToken = await getFeatureFlagToken();
+
+    }
+
+    try {
+
+      // Paramaters for the command.
+      const getLatestConfigurationCommand = {
+        ConfigurationToken: existingFeatureFlagToken
+      };
+    
+      // Get the lastest configuration.
+      const getConfiguration = new GetLatestConfigurationCommand(getLatestConfigurationCommand);
+
+      // Get the configuration.
+      const response = await client.send(getConfiguration);
+
+      if (response.Configuration) {
+
+        // The configuration comes back as as set of character codes.
+        // Need to convert the character codes into a string.
+        let configuration = "";
+
+        for (let i = 0; i < response.Configuration.length; i++) {
+          configuration += String.fromCharCode(response.Configuration[i]);
+        }
+
+        const allFlags = JSON.parse(configuration);
+
+        global.flags = Object.assign({}, allFlags);
+
+      }
+
+    } catch (error) {
+
+      if (error instanceof BadRequestException) {
+
+        console.error(error);
+
+        existingFeatureFlagToken = await getFeatureFlagToken();
+
+        return _asyncFeatureFlags();
+
+      } else {
+
+        throw error;
+
+      }
+
+    } finally {
+
+      // console.info("complete");
+
+    }
+
+  }
+
+  return _asyncFeatureFlags();
+
+}
+
+// Get the freeform configuration for this application and environment.
+function getFreeformConfig() {
+
+  console.info("Getting Freeform Config...");
+
+  async function _asyncFreeformConfig() {
+
+    if (!existingFreeformToken) {
+
+      existingFreeformToken = await getFreeformToken();
+
+    }
+
+    try {
+
+      // Paramaters for the command.
+      const getLatestConfigurationCommand = {
+        ConfigurationToken: existingFreeformToken
+      };
+    
+      // Get the lastest configuration.
+      const getConfiguration = new GetLatestConfigurationCommand(getLatestConfigurationCommand);
+
+      // Get the configuration.
+      const response = await client.send(getConfiguration);
+
+      if (response.Configuration) {
+
+        // The configuration comes back as as set of character codes.
+        // Need to convert the character codes into a string.
+        let configuration = "";
+
+        for (let i = 0; i < response.Configuration.length; i++) {
+          configuration += String.fromCharCode(response.Configuration[i]);
+        }
+
+        const freeFormConfig = YAML.parse(configuration);
+
+        global.config = Object.assign({}, freeFormConfig);
+
+      }
+
+    } catch (error) {
+
+      if (error instanceof BadRequestException) {
+
+        console.error(error);
+
+        existingFreeformToken = await getFreeformToken();
+
+        return _asyncFreeformConfig();
+
+      } else {
+
+        throw error;
+
+      }
+
+    } finally {
+
+      // console.info("complete");
+
+    }
+
+  }
+
+  return _asyncFreeformConfig();
+
+}
+
+// Get AppConfig Feature Flag token.
+async function getFeatureFlagToken() {
+
+  try {
+
+    const sessionToken = await client.send(getFeatureFlagSession);
+
+    return sessionToken.InitialConfigurationToken || "";
+
+  } catch (error) {
+
+    console.error(error);
+
+    throw error;
+
+  } finally {
+
+    // console.info("complete");
+
+  }
+
+}
+
+// Get AppConfig Freeform token.
+async function getFreeformToken() {
+
+  try {
+
+    const sessionToken = await client.send(getFreeformSession);
+
+    return sessionToken.InitialConfigurationToken || "";
+
+  } catch (error) {
+
+    console.error(error);
+
+    throw error;
+
+  } finally {
+
+    // console.info("complete");
+
+  }
+
+}
 
 //Handle request and send response...
 function handleRequest(request, response) {
 
   //Get the credentials...
-  var credentials = auth(request),
+  let credentials = auth(request),
   parsedUrl = url.parse(request.url);
 
   //handleRequest Supporting Functions
+  function displayPage() {
+
+    function preparePage(page) {
+
+      //Proceess the page template.
+      return template(page,{Flags:global.flags,Config:global.config});
+
+    }
+
+    //The following credentials will have to be replaced with environment variables when this goes to production.
+    if (!credentials || credentials.name !== LOGIN || credentials.pass !== PASSWD) {
+
+      //Send an error message if there are bad credentails or no credentials.
+      response.statusCode = 401;
+      response.setHeader("WWW-Authenticate", "Basic realm=\"Node.js Boilerplate Login\"");
+      response.end("Access Denied");
+
+    } else {
+
+      response.writeHead(200, {"Content-Type": "text/html; charset=UTF-8"});
+      response.write(preparePage(htmlFiles["page-header.html"]));
+
+      if (global.flags.header.enabled === true) {
+        response.write(preparePage(htmlFiles["body-header-new.html"]));
+      } else {
+        response.write(preparePage(htmlFiles["body-header-old.html"]));
+      }
+
+      response.write(preparePage(htmlFiles["body-main.html"]));
+
+      if (global.flags.footer.enabled === true) {
+        response.write(preparePage(htmlFiles["body-footer-new.html"]));
+      } else {
+        response.write(preparePage(htmlFiles["body-footer-old.html"]));
+      }
+
+      response.write(preparePage(htmlFiles["page-footer.html"]));
+      response.end();
+
+    }
+
+  }
+
   function packageFileDetails(err, data) {
 
     //packageFileDetails Supporting Functions
     function githubFileDetails(err, data) {
 
-      var package = global.package;
+      let package = global.package;
 
       //If we could not read the GitHub file...
       if (err) {
 
-        status = {
+        appInfo = {
           'APP_NAME': package.name,
           'APP_VERSION': package.version
         };
   
         response.writeHead(200, {"Content-Type": "application/json"});
-        response.end(JSON.stringify(status));
+        response.end(JSON.stringify(appInfo));
 
       //If we could read the GitHub file...
       } else {
 
         global.git = JSON.parse(data);
 
-        var git = global.git;
+        let git = global.git;
 
         //Change health check output based on environment.
         if (ENVIRONMENT == "prod") {
-          status = {
+          appInfo = {
             "APP_NAME": package.name,
             "APP_VERSION": package.version,
             "GIT_COMMIT": git.commit
           };
         } else {
-          status = {
+          appInfo = {
             "APP_NAME": package.name,
             "APP_VERSION": package.version,
             "GIT_ORGANIZATION": git.organization,
@@ -72,7 +374,7 @@ function handleRequest(request, response) {
         }
 
         response.writeHead(200, {"Content-Type": "application/json"});
-        response.end(JSON.stringify(status));
+        response.end(JSON.stringify(appInfo));
 
       }
 
@@ -95,39 +397,12 @@ function handleRequest(request, response) {
 
   }
 
-  function displayPage() {
-
-    //The following credentials will have to be replaced with environment variables when this goes to production.
-    if (!credentials || credentials.name !== LOGIN || credentials.pass !== PASSWD) {
-
-      //Send an error message if there are bad credentails or no credentials.
-      response.statusCode = 401;
-      response.setHeader("WWW-Authenticate", "Basic realm=\"Node.js Boilerplate Login\"");
-      response.end("Access Denied");
-
-    } else {
-
-      //Return a simple HTML page if we passed Basic Authentication.
-      response.writeHead(200, {"Content-Type": "text/html; charset=UTF-8"});
-      response.write('<!doctype html>\n<html lang="en">\n' +
-                    '<head>\n<meta charset="utf-8">\n<title>' + APPLICATION_TITLE + ' (' + REGION + ')</title>\n' +
-                    '<style type="text/css">* {font-family:arial, sans-serif;}</style>\n' +
-                    '</head>\n<body>\n' +
-                    '<h1>' + APPLICATION_TITLE + ' (' + ENVIRONMENT + ')</h1>\n' +
-                    '<div id="content"><p>The ECS Fargate Node.js boilerplate application is now active.</p></div>\n' +
-                    '</body>\n</html>');
-      response.end();
-
-    }
-
-  }
-
   //Function Logic
 
   //If this is the health check path...
   if (parsedUrl.pathname == HEALTH_CHECK_PATH) {
 
-    var status = {};
+    let status = {};
 
     fs.readFile("/package.json", "utf8", packageFileDetails);
 
@@ -140,17 +415,84 @@ function handleRequest(request, response) {
 
 }
 
-function serverSuccess() {
+function init() {
 
-  //Callback triggered when server is successfully listening. Hurray!
-  console.log("Server listening on: http://%s:%s", HOSTNAME, PORT);
+  function getHtmlFiles() {
+
+    let directory = path.join(__dirname, "html");
+    let fileList = fs.readdirSync(directory);
+    //let promises = fileList.map(file => readFileContent(path.join(directory, file),file));
+
+    function readFileContent(file) {
+  
+      function _readFileContent(resolve, reject) {
+  
+        function parseFile(error, data) {
+  
+          if (error) {
+            reject(error);
+          }
+
+          // function parseLine(line) {
+          //   return line.trim();
+          // }
+
+          //let fileContent = data.toString().split(/(?:\r\n|\r|\n)/g).map(parseLine).filter(Boolean);
+          let fileContent = data.toString();
+      
+          resolve(processFile(file,fileContent));
+      
+        }
+  
+        fs.readFile(path.join(directory, file), parseFile);
+  
+      }
+  
+      let output = new Promise(_readFileContent);
+  
+      return output;
+  
+    }
+
+    let promises = fileList.map(readFileContent);
+    Promise.all(promises).then(checkFreeformConfig,failure);
+
+  }
+
+  function processFile(file,fileContent) {
+
+    htmlFiles[file] = fileContent;
+
+    console.log(`File Name: ${file}`);
+
+  }
+
+  getHtmlFiles();
 
 }
 
-//Main Logic
+function startService() {
 
-//Create an HTTP server.
-var server = http.createServer(handleRequest);
+  console.info("AppConfig Freeform Config...");
+  console.dir(global.config);
+  console.info("AppConfig Feature Flags Config...");
+  console.dir(global.flags);
 
-//Lets start our HTTP server.
-server.listen(PORT,serverSuccess);
+  function serverSuccess() {
+
+    //Callback triggered when server is successfully listening. Hurray!
+    console.log("Server listening on: http://%s:%s", HOSTNAME, PORT);
+  
+  }
+  
+  //Main Logic
+  
+  //Create an HTTP server.
+  let server = http.createServer(handleRequest);
+  
+  //Lets start our HTTP server.
+  server.listen(PORT,serverSuccess);
+
+}
+
+init();
