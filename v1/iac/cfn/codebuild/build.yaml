@@ -60,11 +60,12 @@ Parameters:
     - "aws/codebuild/amazonlinux2-x86_64-standard:1.0"
     - "aws/codebuild/amazonlinux2-x86_64-standard:2.0"
     - "aws/codebuild/amazonlinux2-x86_64-standard:3.0"
+    - "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
     - "aws/codebuild/standard:1.0"
     - "aws/codebuild/standard:2.0"
     - "aws/codebuild/standard:3.0"
     - "aws/codebuild/standard:4.0"
-    Default: "aws/codebuild/amazonlinux2-x86_64-standard:3.0"
+    Default: "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
   CodeBuildTimeoutInMinutes:
     Type: "Number"
     Default: 10
