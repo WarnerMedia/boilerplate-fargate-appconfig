@@ -14,12 +14,15 @@
   "author": "Warner Media, LLC",
   "license": "MIT",
   "dependencies": {
-    "basic-auth": "^1.1.0"
+    "@aws-sdk/client-appconfigdata": "^3.154.0",
+    "basic-auth": "^2.0.1",
+    "es6-template-strings": "^2.0.1",
+    "yaml": "^2.1.1"
   },
   "devDependencies": {
     "cucumber": "^6.0.5",
     "dns": "^0.2.2",
-    "got": "^10.5.7",
+    "got": "^12.3.1",
     "is-http2": "^1.2.0",
     "node-libcurl": "^2.3.3",
     "path": "^0.12.7",
