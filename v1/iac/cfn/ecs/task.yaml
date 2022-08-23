@@ -263,7 +263,7 @@ Resources:
       ManagedPolicyArns:
       - "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
       Policies:
-      - PolicyName: "ReadSecrets"
+      - PolicyName: "GeneralTaskPermissions"
         PolicyDocument:
           Version: "2012-10-17"
           Statement:
@@ -273,6 +273,9 @@ Resources:
             - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/aws/reference/secretsmanager/ecs/service/${ServiceBaseName}/${TagEnvironment}/*"
             Effect: "Allow"
             Action:
+            - "appconfig:Get*"
+            - "appconfig:List*"
+            - "appconfig:StartConfigurationSession"
             - "kms:Decrypt"
             - "secretsmanager:GetSecretValue"
             - "ssm:GetParameter"
@@ -290,7 +293,7 @@ Resources:
       - "FARGATE"
       Cpu: !Ref TaskCpu
       Memory: !Ref TaskMemory
-      ExecutionRoleArn: !Ref TaskExecutionRole
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
       ContainerDefinitions:
       - Name: !Sub "${ServiceBaseName}-${TagEnvironment}"
         Image: !Ref ContainerImage
