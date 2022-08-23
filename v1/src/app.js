@@ -498,8 +498,8 @@ function setDefaultConfigs() {
 
   console.warn("No valid AWS SDK credentials were found.");
 
-  console.warn(`AWS_CONTAINER_CREDENTIALS_FULL_URI: ${AWS_CONTAINER_CREDENTIALS_FULL_URI}`);
-  console.warn(`AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: ${AWS_CONTAINER_CREDENTIALS_RELATIVE_URI}`);
+  console.warn(`process.env.AWS_CONTAINER_CREDENTIALS_FULL_URI: ${process.env.AWS_CONTAINER_CREDENTIALS_FULL_URI}`);
+  console.warn(`process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: ${process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI}`);
 
   //Set a generic default config since there are no credentials for the AWS SDK.
   global.config = {
