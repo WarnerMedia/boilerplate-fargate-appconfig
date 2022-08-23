@@ -1,6 +1,6 @@
 {
   "name": "boilerplate-fargate-appconfig",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "This is a Fargate/AppConfig application boilerplate.",
   "main": "src/app.js",
   "type": "module",
