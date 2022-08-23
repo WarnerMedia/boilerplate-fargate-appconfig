@@ -64,8 +64,18 @@ global.config = {};
 
 function checkCredentials() {
 
-  //Make sure that the AWS SDK has credentials before we try to interact with AppConfig.
-  Promise.resolve(client.config.credentials()).then(checkFreeformConfig,setDefaultConfigs);
+  if (typeof AWS_CONTAINER_CREDENTIALS_RELATIVE_URI === "undefined" && typeof AWS_CONTAINER_CREDENTIALS_FULL_URI === "undefined") {
+
+    console.info("Checking for non-Fargate/ECS credentials...");
+    //Make sure that the AWS SDK has credentials before we try to interact with AppConfig.
+    Promise.resolve(client.config.credentials()).then(checkFreeformConfig,setDefaultConfigs);
+
+  } else {
+
+    console.info("We are running on either Fargate or ECS...");
+    checkFreeformConfig();
+
+  }
 
 }
 
