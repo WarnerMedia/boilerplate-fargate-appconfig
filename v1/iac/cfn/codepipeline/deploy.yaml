@@ -68,7 +68,7 @@ Parameters:
   SlackNotificationLambda:
     Type: "String"
     Description: "What is the name of the function used to send out Slack notifications?"
-    Default: "slack-notification-prod"
+    Default: "codepipeline-slack-notification-prod"
   # Source Configuration
   BaseArtifactFolder:
     Type: "String"

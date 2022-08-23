@@ -1,13 +1,16 @@
 import assert from "assert";
-import { Given, When, Then } from "cucumber";
+import { Given, When, Then } from "@cucumber/cucumber";
 import { Curl } from "node-libcurl";
 //import { exec } from "child_process";
 import fs from "fs";
 import path from "path";
 import tls from "tls";
+import url from "url";
 
 //Set some constants.
-const global = this;
+const global = {},
+      __filename = url.fileURLToPath(import.meta.url),
+      __dirname = path.dirname(__filename);
 
 // 2021.12.16: Get the latest CA certs (needed for AWS CodeBuild)
 const certFilePath = path.join(__dirname, "cert.pem");

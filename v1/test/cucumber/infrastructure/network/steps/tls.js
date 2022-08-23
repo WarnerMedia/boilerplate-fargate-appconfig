@@ -3,6 +3,8 @@ import { Given, When, Then } from "@cucumber/cucumber";
 import got from "got";
 //import fs from 'fs';
 
+let global = {};
+
 When('we request the health check URL using the {string} protocol', async (protocol) => {
   const domain = process.env.SERVICE_DOMAIN;
   const hc = process.env.SERVICE_HEALTH_CHECK;
@@ -11,14 +13,14 @@ When('we request the health check URL using the {string} protocol', async (proto
     secureProtocol: protocol
   };
   try {
-    this.response = await got.get("https://"+domain+hc,options);
-    this.status = "successful";
+    global.response = await got.get("https://"+domain+hc,options);
+    global.status = "successful";
   } catch (error) {
     console.error(error.name);
-    this.status = "failure";
+    global.status = "failure";
   }
 });
 
 Then('we should get a {string} response', (value) => {
-  assert.strictEqual(this.status, value);
+  assert.strictEqual(global.status, value);
 });
