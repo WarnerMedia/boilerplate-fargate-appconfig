@@ -27,6 +27,8 @@ const ENVIRONMENT=process.env.ENVIRONMENT || "NONE",
       APP_CONFIG_FREEFORM_APP_IDENTIFIER = process.env.APP_CONFIG_FREEFORM_APP_IDENTIFIER || "boilerplate-fargate-appconfig-freeform",
       APP_CONFIG_CONFIG_PROFILE_IDENTIFIER = process.env.APP_CONFIG_CONFIG_PROFILE_IDENTIFIER || "int",
       APP_CONFIG_ENVIRONMENT_IDENTIFIER = process.env.APP_CONFIG_ENVIRONMENT_IDENTIFIER || "int",
+      AWS_CONTAINER_CREDENTIALS_FULL_URI = process.env.AWS_CONTAINER_CREDENTIALS_FULL_URI || "NONE",
+      AWS_CONTAINER_CREDENTIALS_RELATIVE_URI = process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI || "NONE",
       __filename = url.fileURLToPath(import.meta.url),
       __dirname = path.dirname(__filename);
 
@@ -64,7 +66,7 @@ global.config = {};
 
 function checkCredentials() {
 
-  if (typeof AWS_CONTAINER_CREDENTIALS_RELATIVE_URI === "undefined" && typeof AWS_CONTAINER_CREDENTIALS_FULL_URI === "undefined") {
+  if (AWS_CONTAINER_CREDENTIALS_FULL_URI === "NONE" && AWS_CONTAINER_CREDENTIALS_RELATIVE_URI === "NONE") {
 
     console.info("Checking for non-Fargate/ECS credentials...");
     //Make sure that the AWS SDK has credentials before we try to interact with AppConfig.
@@ -495,6 +497,9 @@ function init() {
 function setDefaultConfigs() {
 
   console.warn("No valid AWS SDK credentials were found.");
+
+  console.warn(`AWS_CONTAINER_CREDENTIALS_FULL_URI: ${AWS_CONTAINER_CREDENTIALS_FULL_URI}`);
+  console.warn(`AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: ${AWS_CONTAINER_CREDENTIALS_RELATIVE_URI}`);
 
   //Set a generic default config since there are no credentials for the AWS SDK.
   global.config = {
