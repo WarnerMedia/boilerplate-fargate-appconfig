@@ -62,6 +62,13 @@ global.config = {};
 
 //Main Functions
 
+function checkCredentials() {
+
+  //Make sure that the AWS SDK has credentials before we try to interact with AppConfig.
+  Promise.resolve(client.config.credentials()).then(checkFreeformConfig,setDefaultConfigs);
+
+}
+
 function checkFeatureFlags() {
   Promise.all([getFeatureFlags()]).then(startService,failure);
 }
@@ -457,7 +464,8 @@ function init() {
     }
 
     let promises = fileList.map(readFileContent);
-    Promise.all(promises).then(checkFreeformConfig,failure);
+
+    Promise.all(promises).then(checkCredentials,failure);
 
   }
 
@@ -470,6 +478,38 @@ function init() {
   }
 
   getHtmlFiles();
+
+}
+
+function setDefaultConfigs() {
+
+  console.warn("No valid AWS SDK credentials were found.");
+
+  //Set a generic default config since there are no credentials for the AWS SDK.
+  global.config = {
+    Body: {
+      Author: "Default Author",
+      Description: "Default Description",
+      Image: "https://via.placeholder.com/300",
+      Subtitle: "Default Subtitle",
+      Title: "AppConfig Feature Flag and Freeform Config Demo Site",
+      Type: "website",
+      Url: "www.example.com"
+    }
+  };
+
+  //Set some default falgs since there are no credentials for the AWS SDK.
+  global.flags = {
+    footer: {
+      enabled: false
+    },
+    header: {
+      enabled: false
+    }
+  };
+
+  //Start the service with the default values.
+  startService();
 
 }
 
