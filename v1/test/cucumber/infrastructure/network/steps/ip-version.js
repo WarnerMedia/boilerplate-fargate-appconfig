@@ -9,7 +9,9 @@ When('we request the health check URL using Internet Protocol Version {int} and 
   const domain = process.env.SERVICE_DOMAIN;
   const hc = process.env.SERVICE_HEALTH_CHECK;
   const options = {
-    timeout:10000,
+    timeout:{
+      request:10000
+    },
     family: version
   };
   try {

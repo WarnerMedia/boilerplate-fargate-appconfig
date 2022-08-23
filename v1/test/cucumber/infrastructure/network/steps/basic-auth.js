@@ -7,7 +7,9 @@ let global = {};
 When('we request the homepage of the service', async () => {
   const domain = process.env.SERVICE_DOMAIN;
   const options = {
-    timeout:10000
+    timeout:{
+      request:10000
+    }
   };
   try {
     global.response = await got.get("https://"+domain,options);

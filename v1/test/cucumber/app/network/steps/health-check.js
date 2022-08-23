@@ -6,7 +6,9 @@ let global = {};
 
 When('we request the health check route: {string}', async (url) => {
   const options = {
-    timeout:10000
+    timeout:{
+      request:10000
+    }
   };
   try {
     global.response = await got.get(url,options);
