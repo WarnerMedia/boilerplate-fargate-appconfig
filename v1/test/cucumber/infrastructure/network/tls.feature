@@ -11,4 +11,4 @@ Feature: Secure Certificate Check
         When we request the health check URL using the "TLSv1.2" protocol
         Then we should get a "successful" response
         When we request the health check URL using the "TLSv1.3" protocol
-        Then we should get a "successful" response
+        Then we should get a "failure" response

@@ -43,7 +43,7 @@ Parameters:
   SiteType:
     Type: "String"
     Description: "The type of site."
-    Default: "AppConfig Feature Flag and Freeform Config Demo Site"
+    Default: "website"
   SiteUrl:
     Type: "String"
     Description: "The URL of the site."

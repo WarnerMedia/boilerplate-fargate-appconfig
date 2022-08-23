@@ -167,7 +167,8 @@ Parameters:
     - "ELBSecurityPolicy-FS-1-1-2019-08"
     - "ELBSecurityPolicy-FS-1-2-2019-08"
     - "ELBSecurityPolicy-FS-1-2-Res-2019-08"
-    Default: "ELBSecurityPolicy-FS-1-2-Res-2019-08"
+    - "ELBSecurityPolicy-FS-1-2-Res-2020-10"
+    Default: "ELBSecurityPolicy-FS-1-2-Res-2020-10"
   LoadBalancerDeregistrationDelay:
     Type: "Number"
     Description: "The number of seconds the load balancer will wait to to remove a task (after requests have stopped being sent to the task)."
