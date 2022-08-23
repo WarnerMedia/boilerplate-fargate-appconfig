@@ -3,6 +3,8 @@ import { Given, When, Then } from "@cucumber/cucumber";
 import got from "got";
 //import fs from 'fs';
 
+let global = {};
+
 When('we request the health check URL and receive the certificate response', async () => {
   const domain = process.env.SERVICE_DOMAIN;
   const hc = process.env.SERVICE_HEALTH_CHECK;
@@ -10,14 +12,14 @@ When('we request the health check URL and receive the certificate response', asy
     timeout:10000
   };
   try {
-    this.response = await got.get("https://"+domain+hc,options);
-    this.authorized = this.response.socket.authorized;
+    global.response = await got.get("https://"+domain+hc,options);
+    global.authorized = global.response.socket.authorized;
   } catch (error) {
     console.error(error.name);
-    this.authorized = false;
+    global.authorized = false;
   }
 });
 
 Then('we should get an authorized response', () => {
-  assert.strictEqual(this.authorized, true);
+  assert.strictEqual(global.authorized, true);
 });
