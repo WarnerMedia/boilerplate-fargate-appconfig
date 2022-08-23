@@ -1,6 +1,6 @@
-const assert = require('assert');
-const { Given, When, Then } = require('cucumber');
-const got = require('got');
+import assert from "assert";
+import { Given, When, Then } from "@cucumber/cucumber";
+import got from "got";
 
 When('we request the health check URL of the service', async () => {
   const domain = process.env.SERVICE_DOMAIN;

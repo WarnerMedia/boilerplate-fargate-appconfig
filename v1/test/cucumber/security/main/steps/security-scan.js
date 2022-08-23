@@ -1,10 +1,12 @@
-const assert = require("assert");
-const { Given, When, Then } = require("cucumber");
-const { Curl } = require("node-libcurl");
-const { exec } = require("child_process");
-const fs = require("fs");
-const path = require("path");
-const tls = require("tls");
+import assert from "assert";
+import { Given, When, Then } from "cucumber";
+import { Curl } from "node-libcurl";
+//import { exec } from "child_process";
+import fs from "fs";
+import path from "path";
+import tls from "tls";
+
+//Set some constants.
 const global = this;
 
 // 2021.12.16: Get the latest CA certs (needed for AWS CodeBuild)

@@ -1,6 +1,8 @@
-const assert = require('assert');
-const { Given, When, Then } = require('cucumber');
-const dns = require('dns');
+import assert from "assert";
+import { Given, When, Then } from "@cucumber/cucumber";
+import dns from "dns";
+
+//Set global variables.
 var records = [];
 
 Given('that a service DNS record exists', (done) => {
