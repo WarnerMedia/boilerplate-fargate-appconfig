@@ -12,7 +12,10 @@ When('we request the health check URL using the {string} protocol', async (proto
     timeout:{
       request:10000
     },
-    secureProtocol: protocol
+    https:{
+      minVersion: protocol,
+      maxVersion: protocol
+    }
   };
   try {
     global.response = await got.get("https://"+domain+hc,options);
