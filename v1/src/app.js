@@ -342,7 +342,8 @@ function handleRequest(request, response) {
     //packageFileDetails Supporting Functions
     function githubFileDetails(err, data) {
 
-      let pkg = global.pkg;
+      let pkg = global.pkg,
+          appInfo = {};
 
       //If we could not read the GitHub file...
       if (err) {

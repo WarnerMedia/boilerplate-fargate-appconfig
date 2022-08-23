@@ -7,6 +7,9 @@ COPY package.json /package.json
 RUN node --version \
     && npm install
 
+#Copying HTML templates.
+COPY src/html /src/html
+
 #Copying any needed NodeJS apps.
 COPY src/app.js /src/app.js
 
