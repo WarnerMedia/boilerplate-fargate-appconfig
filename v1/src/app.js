@@ -1,15 +1,18 @@
 //Set Modules
-const auth = require("basic-auth"), /* Basic Authentication Module */
-    { AppConfigDataClient,
-      BadRequestException,
-      GetLatestConfigurationCommand,
-      StartConfigurationSessionCommand } = require("@aws-sdk/client-appconfigdata"), //AWS AppConfig Classes
-    fs = require("fs"), /* File System Module */
-    http = require("http"), /* Simple HTTP Server Module */
-    path = require("path"),
-    template = require("es6-template-strings"), /* Simple templating solution */
-    url = require("url"), /* URL Parsing */
-    YAML = require("yaml"); /* YAML parsing */
+import auth from "basic-auth"; /* Basic Authentication Module */
+import { AppConfigDataClient,
+         BadRequestException,
+         GetLatestConfigurationCommand,
+         StartConfigurationSessionCommand } from "@aws-sdk/client-appconfigdata"; //AWS AppConfig Classes
+import fs from "fs"; /* File System Module */
+import http from "http"; /* Simple HTTP Server Module */
+import path from "path";
+import template from "es6-template-strings"; /* Simple templating solution */
+import url from "url"; /* URL Parsing */
+import YAML from "yaml"; /* YAML parsing */
+
+//Force a specific AWS profile for development.
+//process.env.AWS_PROFILE = "<profile>";
 
 //Main Constants
 const ENVIRONMENT=process.env.ENVIRONMENT || "NONE",
@@ -23,10 +26,9 @@ const ENVIRONMENT=process.env.ENVIRONMENT || "NONE",
       APP_CONFIG_FEATURE_FLAG_APP_IDENTIFIER = process.env.APP_CONFIG_FEATURE_FLAG_APP_IDENTIFIER || "boilerplate-fargate-appconfig-feature-flag",
       APP_CONFIG_FREEFORM_APP_IDENTIFIER = process.env.APP_CONFIG_FREEFORM_APP_IDENTIFIER || "boilerplate-fargate-appconfig-freeform",
       APP_CONFIG_CONFIG_PROFILE_IDENTIFIER = process.env.APP_CONFIG_CONFIG_PROFILE_IDENTIFIER || "int",
-      APP_CONFIG_ENVIRONMENT_IDENTIFIER = process.env.APP_CONFIG_ENVIRONMENT_IDENTIFIER || "int";
-
-//Force a specific AWS profile for development.
-//process.env.AWS_PROFILE = "<profile>";
+      APP_CONFIG_ENVIRONMENT_IDENTIFIER = process.env.APP_CONFIG_ENVIRONMENT_IDENTIFIER || "int",
+      __filename = url.fileURLToPath(import.meta.url),
+      __dirname = path.dirname(__filename);
 
 // AppConfig client (which can be shared by different commands).
 const client = new AppConfigDataClient({ region: APP_CONFIG_REGION });
@@ -51,7 +53,7 @@ const getFeatureFlagSession = new StartConfigurationSessionCommand(appConfigFeat
 //Global Variables
 let existingFeatureFlagToken,
     existingFreeformToken,
-    global = this,
+    global = {},
     htmlFiles = {};
 
 //Set a couple of base global objects.
@@ -333,14 +335,14 @@ function handleRequest(request, response) {
     //packageFileDetails Supporting Functions
     function githubFileDetails(err, data) {
 
-      let package = global.package;
+      let pkg = global.pkg;
 
       //If we could not read the GitHub file...
       if (err) {
 
         appInfo = {
-          'APP_NAME': package.name,
-          'APP_VERSION': package.version
+          'APP_NAME': pkg.name,
+          'APP_VERSION': pkg.version
         };
   
         response.writeHead(200, {"Content-Type": "application/json"});
@@ -356,14 +358,14 @@ function handleRequest(request, response) {
         //Change health check output based on environment.
         if (ENVIRONMENT == "prod") {
           appInfo = {
-            "APP_NAME": package.name,
-            "APP_VERSION": package.version,
+            "APP_NAME": pkg.name,
+            "APP_VERSION": pkg.version,
             "GIT_COMMIT": git.commit
           };
         } else {
           appInfo = {
-            "APP_NAME": package.name,
-            "APP_VERSION": package.version,
+            "APP_NAME": pkg.name,
+            "APP_VERSION": pkg.version,
             "GIT_ORGANIZATION": git.organization,
             "GIT_REPOSITORY": git.repository,
             "GIT_BRANCH": git.branch,
@@ -389,7 +391,7 @@ function handleRequest(request, response) {
 
     } else {
 
-      global.package = JSON.parse(data);
+      global.pkg = JSON.parse(data);
 
       fs.readFile("/github.json", "utf8", githubFileDetails);
 

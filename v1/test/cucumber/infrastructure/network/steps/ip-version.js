@@ -1,7 +1,7 @@
-const assert = require('assert');
-const { Given, When, Then } = require('cucumber');
-const got = require('got');
-const fs = require('fs');
+import assert from "assert";
+import { Given, When, Then } from "@cucumber/cucumber";
+import got from "got";
+//import fs from 'fs';
 
 When('we request the health check URL using Internet Protocol Version {int} and receive a response', async (version) => {
   const domain = process.env.SERVICE_DOMAIN;

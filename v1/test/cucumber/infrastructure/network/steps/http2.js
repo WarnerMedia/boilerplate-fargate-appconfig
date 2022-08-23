@@ -1,6 +1,8 @@
-const assert = require('assert');
-const { Given, When, Then } = require('cucumber');
-const checkHttp2 = require('is-http2');
+import assert from "assert";
+import { Given, When, Then } from "@cucumber/cucumber";
+import checkHttp2 from "is-http2";
+
+//Set global variables.
 var isHttp2 = false;
 
 When('we request the homepage via the {string} protocol', (value,done) => {
