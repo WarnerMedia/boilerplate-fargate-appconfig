@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 # NOTE: This template shouldn't spun up directly, it should always be called by the codepipeline template.
-Description: "Create a new service task. - (v1.1.0)"
+Description: "Create a new service task. - (v1.1.1)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -308,13 +308,14 @@ Resources:
         PolicyDocument:
           Version: "2012-10-17"
           Statement:
-          - Resource:
-            - !Sub "arn:aws:appconfig:${ApplicationRegion}:${AWS::AccountId}:application/{{resolve:ssm:/appconfig/${InfrastructureName}/application/freeform/${ApplicationName}/id}}"
-            - !Sub "arn:aws:appconfig:${ApplicationRegion}:${AWS::AccountId}:application/{{resolve:ssm:/appconfig/${InfrastructureName}/application/freeform/${ApplicationName}/id}}/environment/${TagEnvironment}"
-            - !Sub "arn:aws:appconfig:${ApplicationRegion}:${AWS::AccountId}:application/{{resolve:ssm:/appconfig/${InfrastructureName}/application/freeform/${ApplicationName}/id}}/configurationprofile/{{resolve:ssm:/appconfig/${InfrastructureName}/application/freeform/${ApplicationName}/configuration-profile/${TagEnvironment}/id}}"
-            - !Sub "arn:aws:appconfig:${ApplicationRegion}:${AWS::AccountId}:application/{{resolve:ssm:/appconfig/${InfrastructureName}/application/feature-flag/${ApplicationName}/id}}"
-            - !Sub "arn:aws:appconfig:${ApplicationRegion}:${AWS::AccountId}:application/{{resolve:ssm:/appconfig/${InfrastructureName}/application/feature-flag/${ApplicationName}/id}}/environment/${TagEnvironment}"
-            - !Sub "arn:aws:appconfig:${ApplicationRegion}:${AWS::AccountId}:application/{{resolve:ssm:/appconfig/${InfrastructureName}/application/feature-flag/${ApplicationName}/id}}/configurationprofile/{{resolve:ssm:/appconfig/${InfrastructureName}/application/freeform/${ApplicationName}/configuration-profile/${TagEnvironment}/id}}"
+          # TODO: The ARNs for AppConfig are complex, need to get all the different patterns figured out and clean this up.
+          - Resource: "*"
+            # - !Sub "arn:aws:appconfig:${ApplicationRegion}:${AWS::AccountId}:application/{{resolve:ssm:/appconfig/${InfrastructureName}/application/freeform/${ApplicationName}/id}}"
+            # - !Sub "arn:aws:appconfig:${ApplicationRegion}:${AWS::AccountId}:application/{{resolve:ssm:/appconfig/${InfrastructureName}/application/freeform/${ApplicationName}/id}}/environment/${TagEnvironment}"
+            # - !Sub "arn:aws:appconfig:${ApplicationRegion}:${AWS::AccountId}:application/{{resolve:ssm:/appconfig/${InfrastructureName}/application/freeform/${ApplicationName}/id}}/configurationprofile/{{resolve:ssm:/appconfig/${InfrastructureName}/application/freeform/${ApplicationName}/configuration-profile/${TagEnvironment}/id}}"
+            # - !Sub "arn:aws:appconfig:${ApplicationRegion}:${AWS::AccountId}:application/{{resolve:ssm:/appconfig/${InfrastructureName}/application/feature-flag/${ApplicationName}/id}}"
+            # - !Sub "arn:aws:appconfig:${ApplicationRegion}:${AWS::AccountId}:application/{{resolve:ssm:/appconfig/${InfrastructureName}/application/feature-flag/${ApplicationName}/id}}/environment/${TagEnvironment}"
+            # - !Sub "arn:aws:appconfig:${ApplicationRegion}:${AWS::AccountId}:application/{{resolve:ssm:/appconfig/${InfrastructureName}/application/feature-flag/${ApplicationName}/id}}/configurationprofile/{{resolve:ssm:/appconfig/${InfrastructureName}/application/freeform/${ApplicationName}/configuration-profile/${TagEnvironment}/id}}"
             Effect: "Allow"
             Action:
             - "appconfig:Get*"
