@@ -796,6 +796,7 @@ Resources:
             ParameterOverrides: !Sub
             - |
               {
+                "ApplicationName": "${BaseProjectName}",
                 "LogGroupBase": "/ecs/${ClusterName}",
                 "ContainerImage": "${ContainerImage}",
                 "ServiceBaseName": "${ProjectName}",
@@ -837,6 +838,7 @@ Resources:
               ParameterOverrides: !Sub
               - |
                 {
+                  "ApplicationName": "${BaseProjectName}",
                   "LogGroupBase": "/ecs/${ClusterName}",
                   "ContainerImage": "${ContainerImage}",
                   "ServiceBaseName": "${ProjectName}",
