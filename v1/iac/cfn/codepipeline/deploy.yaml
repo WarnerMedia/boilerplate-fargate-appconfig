@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create the CodePipeline needed to deploy this service - (v1.1.4)"
+Description: "Create the CodePipeline needed to deploy this service - (v1.2.0)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -798,6 +798,8 @@ Resources:
               {
                 "ApplicationName": "${BaseProjectName}",
                 "ApplicationRegion": "${AWS::Region}",
+                "ApplicationFeatureFlagId": "${FeatureFlagId}",
+                "ApplicationFreeformId": "${FreeformId}",
                 "LogGroupBase": "/ecs/${ClusterName}",
                 "ContainerImage": "${ContainerImage}",
                 "ServiceBaseName": "${ProjectName}",
@@ -805,6 +807,8 @@ Resources:
                 "TagEnvironment": "${TagEnvironment}"
               }
             - ContainerImage: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcsRepositoryName}@#{Ecr.ImageDigest}"
+              FeatureFlagId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/feature-flag/${BaseProjectName}/id}}"
+              FreeformId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/freeform/${BaseProjectName}/id}}"
           InputArtifacts:
           - Name: "ECR_IMAGE_FILES"
           - Name: "SERVICE_SOURCE_FILES"
@@ -841,6 +845,8 @@ Resources:
                 {
                   "ApplicationName": "${BaseProjectName}",
                   "ApplicationRegion": "${AWS::Region}",
+                  "ApplicationFeatureFlagId": "${FeatureFlagId}",
+                  "ApplicationFreeformId": "${FreeformId}",
                   "LogGroupBase": "/ecs/${ClusterName}",
                   "ContainerImage": "${ContainerImage}",
                   "ServiceBaseName": "${ProjectName}",
@@ -848,6 +854,8 @@ Resources:
                   "TagEnvironment": "${TagEnvironment}"
                 }
               - ContainerImage: !Sub "${AWS::AccountId}.dkr.ecr.${SecondRegion}.amazonaws.com/${EcsRepositoryName}@#{Ecr.ImageDigest}"
+                FeatureFlagId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/feature-flag/${BaseProjectName}/id}}"
+                FreeformId: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/freeform/${BaseProjectName}/id}}"
             InputArtifacts:
             - Name: "ECR_IMAGE_FILES"
             - Name: "SERVICE_SOURCE_FILES"
