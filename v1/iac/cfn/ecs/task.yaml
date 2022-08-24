@@ -62,6 +62,12 @@ Parameters:
   ApplicationRegion:
     Type: "String"
     Description: "The region of the application."
+  ApplicationFreeformId:
+    Type: "String"
+    Description: "The ID of the Freeform application."
+  ApplicationFeatureFlagId:
+    Type: "String"
+    Description: "The ID of the Feature Flag application."
   # ProfileType:
   #   Type: "String"
   #   Description: "The type of configuration profile."
@@ -364,9 +370,9 @@ Resources:
         - Name: "APP_CONFIG_REGION"
           Value: !Ref ApplicationRegion
         - Name: "APP_CONFIG_FEATURE_FLAG_APP_IDENTIFIER"
-          Value: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/feature-flag/${ApplicationName}/id}}"
+          Value: !Ref ApplicationFeatureFlagId
         - Name: "APP_CONFIG_FREEFORM_APP_IDENTIFIER"
-          Value: !Sub "{{resolve:ssm:/appconfig/${InfrastructureName}/application/freeform/${ApplicationName}/id}}"
+          Value: !Ref ApplicationFreeformId
         - Name: "APP_CONFIG_ENVIRONMENT_IDENTIFIER"
           Value: !Ref TagEnvironment
         - Name: !If [ Env1, !Ref EnvName1, "ENV1" ]
@@ -496,6 +502,8 @@ Metadata:
       Parameters:
       - ApplicationName
       - ApplicationRegion
+      - ApplicationFreeformId
+      - ApplicationFeatureFlagId
       # - ProfileType
     - Label:
         default: "Container Environment Configuration"
@@ -590,6 +598,10 @@ Metadata:
         default: "Application Name:"
       ApplicationRegion:
         default: "Application Region:"
+      ApplicationFreeformId:
+        default: "Application Freeform ID:"
+      ApplicationFeatureFlagId:
+        default: "Application Feature Flag ID:"
       # ProfileType:
       #   default: "Profile Type:"
       # Environment Variables
