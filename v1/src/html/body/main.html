@@ -1,9 +1,26 @@
     <main>
-      <!-- <img src="${config.body.image}"> -->
-      <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. At varius vel pharetra vel. Quisque sagittis purus sit amet. Nisi lacus sed viverra tellus in hac habitasse platea dictumst. Id consectetur purus ut faucibus pulvinar elementum integer enim. Sed pulvinar proin gravida hendrerit lectus. Vel pretium lectus quam id leo in vitae turpis massa. Consequat id porta nibh venenatis cras sed felis. Purus in massa tempor nec feugiat nisl pretium fusce id. Erat nam at lectus urna duis convallis convallis. Et netus et malesuada fames ac turpis. Malesuada nunc vel risus commodo. Aliquam ut porttitor leo a diam sollicitudin tempor id eu.</p>
 
-      <p>Adipiscing vitae proin sagittis nisl rhoncus mattis. Adipiscing diam donec adipiscing tristique risus nec feugiat in. Nullam ac tortor vitae purus. Eget sit amet tellus cras adipiscing. Metus aliquam eleifend mi in nulla posuere sollicitudin aliquam. Sed arcu non odio euismod lacinia at quis risus. Volutpat lacus laoreet non curabitur gravida arcu ac. Feugiat nisl pretium fusce id velit ut tortor pretium. Amet nisl purus in mollis. Scelerisque felis imperdiet proin fermentum leo vel orci porta. Aliquam faucibus purus in massa tempor nec. Diam sit amet nisl suscipit adipiscing bibendum est ultricies integer. Nec sagittis aliquam malesuada bibendum arcu vitae elementum curabitur.</p>
+      <h2>${config.body.subtitle}</h2>
 
-      <p>Orci phasellus egestas tellus rutrum. Amet cursus sit amet dictum sit amet justo. Dolor sed viverra ipsum nunc aliquet bibendum enim. Senectus et netus et malesuada fames ac turpis egestas. Lacus viverra vitae congue eu consequat ac. A iaculis at erat pellentesque adipiscing commodo elit at. Gravida cum sociis natoque penatibus et magnis dis parturient. Eleifend mi in nulla posuere sollicitudin aliquam ultrices sagittis. Vestibulum rhoncus est pellentesque elit ullamcorper dignissim cras tincidunt lobortis. Congue eu consequat ac felis donec et odio pellentesque diam. Id nibh tortor id aliquet lectus. Mi quis hendrerit dolor magna eget est. Malesuada proin libero nunc consequat interdum varius. Pharetra pharetra massa massa ultricies mi quis. Aenean sed adipiscing diam donec adipiscing tristique.</p>
+      <p>This is a simple Node.js application running on AWS Fargate.  The service reads in two different configurations from the AWS AppConfig service:</p>
+
+      <ul>
+        <li>YAML Freeform</li>
+        <li>Feature Flag</li>
+      </ul>
+
+      <img src="${config.body.image}">
+
+      <p>The Freeform configuration is used to set things like the page title, header values, and content images.  This kind of configuration could serve many purposes, such as setting API URLs, CDN base paths, etc.</p>
+
+      <p>The Feature Flag configuration is used to enable or disable flags that can do things like activate and deactivate a new header and footer.  These flags also have attributes which can be used by the page, such as border and backgroung colors.</p>
+
+      <p>For the purposes of this demostration, the configuration is being pulled in by the AWS SDK and the page is being build dynamically.  You could choose certain parts of the configuration to be exposed to front-end JavaScript.</p>
+
+      <p>This application also has a simple caching mechanism to reduce the number of calls going back to AppConfig (in order to reduce costs).  AppConfig is billed based on consumption, so you want to keep consumption reasonable.</p>
+
+      <p>The caching mechanism employed in this demonstration application may not be sufficient for a production environment; by default, it will get a new configuration on a regular interval (current default is 20 seconds).  It will also only pull a new configuration if a page has been requested, so a development environment which is idling will not be sending requests to AppConfig.</p>
+
+      <p>Long term, it may be better to move to a push model where the application is notified of a configuration change, but for the demonstration site, just wanted to make the point that a caching layer of some sort should be implemented in order to reduce requests to AppConfig.</p>
 
     </main>

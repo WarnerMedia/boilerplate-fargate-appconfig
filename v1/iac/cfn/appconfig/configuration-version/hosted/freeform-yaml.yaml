@@ -27,15 +27,15 @@ Parameters:
   ImageUrl:
     Type: "String"
     Description: "This is a sample image URL parameter for adding values to the profile configuration."
-    Default: "https://via.placeholder.com/300" # placeholder.com is a free service for using placeholder images.
+    Default: "https://placekitten.com/g/300/300" # placeholder.com and placekitten.com are free services for placeholder images.
   Title:
     Type: "String"
     Description: "Title for the site."
-    Default: "AppConfig Feature Flag and Freeform Config Demo Site"
+    Default: "AppConfig Freeform/Feature Flag Demonstration"
   Subtitle:
     Type: "String"
     Description: "Subtitle for the site."
-    Default: "Welcome to the Demo Site"
+    Default: "Welcome to the AppConfig Demonstration Site"
   SiteDescription:
     Type: "String"
     Description: "The description of the site."
