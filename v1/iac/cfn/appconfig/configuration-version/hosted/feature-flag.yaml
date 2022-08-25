@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create an AppConfig JSON Feature Flag Hosted Configuration Version - (v1.0.1)"
+Description: "Create an AppConfig JSON Feature Flag Hosted Configuration Version - (v1.1.0)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -58,19 +58,19 @@ Resources:
             "flags": {
                 "header": {
                     "attributes": {
-                        "background-color": {
+                        "backgroundColor": {
                             "constraints": {
                                 "required": true,
                                 "type": "string"
                             }
                         },
-                        "text-color": {
+                        "textColor": {
                             "constraints": {
                                 "required": true,
                                 "type": "string"
                             }
                         },
-                        "enable-login": {
+                        "enableLogin": {
                             "constraints": {
                                 "required": true,
                                 "type": "boolean"
@@ -82,14 +82,14 @@ Resources:
                 },
                 "footer": {
                     "attributes": {
-                        "background-color": {
+                        "backgroundColor": {
                             "constraints": {
                                 "pattern": "^#(?:[0-9a-fA-F]{3,4}){1,2}$",
                                 "required": true,
                                 "type": "string"
                             }
                         },
-                        "text-color": {
+                        "textColor": {
                             "constraints": {
                                 "pattern": "^#(?:[0-9a-fA-F]{3,4}){1,2}$",
                                 "required": true,
@@ -104,7 +104,7 @@ Resources:
                                 "type": "array"
                             }
                         },
-                        "copyright-alignment": {
+                        "copyrightAlignment": {
                             "constraints": {
                                 "enum": [
                                     "right",
@@ -153,9 +153,9 @@ Resources:
             "values": {
                 "header": {
                     "enabled": ${FlagHeader},
-                    "background-color": "#A9A9A9",
-                    "text-color": "#FAEBD7",
-                    "enable-login": true
+                    "backgroundColor": "#A9A9A9",
+                    "textColor": "#FAEBD7",
+                    "enableLogin": true
                 },
                 "footer": {
                     "copyright": [
@@ -163,7 +163,7 @@ Resources:
                         "Some Company Name.",
                         "All Rights Reserved."
                     ],
-                    "copyright-alignment": "right",
+                    "copyrightAlignment": "right",
                     "date": "05/03/2022",
                     "enabled": ${FlagFooter},
                     "numbers": [
@@ -173,8 +173,8 @@ Resources:
                         98,
                         123
                     ],
-                    "text-color": "#FAEBD7",
-                    "background-color": "#696969"
+                    "textColor": "#FAEBD7",
+                    "backgroundColor": "#696969"
                 },
                 "short-term-feature": {
                     "enabled": ${FlagShortTermFeature},
