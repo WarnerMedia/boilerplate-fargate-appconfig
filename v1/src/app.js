@@ -18,7 +18,7 @@ import YAML from "yaml"; /* YAML parsing */
 //Main Constants
 const __filename = url.fileURLToPath(import.meta.url),
       __dirname = path.dirname(__filename),
-      APP_CONFIG_CACHE = process.env.CONFIG_CACHE || 15, /* AppConfig cache time in seconds  */
+      APP_CONFIG_CACHE = process.env.APP_CONFIG_CACHE || 15, /* AppConfig cache time in seconds  */
       APP_CONFIG_REGION = process.env.APP_CONFIG_REGION || "us-east-2",
       APP_CONFIG_FEATURE_FLAG_APP_IDENTIFIER = process.env.APP_CONFIG_FEATURE_FLAG_APP_IDENTIFIER || "boilerplate-fargate-appconfig-feature-flag",
       APP_CONFIG_FREEFORM_APP_IDENTIFIER = process.env.APP_CONFIG_FREEFORM_APP_IDENTIFIER || "boilerplate-fargate-appconfig-freeform",
