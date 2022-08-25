@@ -60,12 +60,21 @@ Resources:
                     "attributes": {
                         "backgroundColor": {
                             "constraints": {
+                                "pattern": "^#(?:[0-9a-fA-F]{3,4}){1,2}$",
+                                "required": true,
+                                "type": "string"
+                            }
+                        },
+                        "borderColor": {
+                            "constraints": {
+                                "pattern": "^#(?:[0-9a-fA-F]{3,4}){1,2}$",
                                 "required": true,
                                 "type": "string"
                             }
                         },
                         "textColor": {
                             "constraints": {
+                                "pattern": "^#(?:[0-9a-fA-F]{3,4}){1,2}$",
                                 "required": true,
                                 "type": "string"
                             }
@@ -83,6 +92,13 @@ Resources:
                 "footer": {
                     "attributes": {
                         "backgroundColor": {
+                            "constraints": {
+                                "pattern": "^#(?:[0-9a-fA-F]{3,4}){1,2}$",
+                                "required": true,
+                                "type": "string"
+                            }
+                        },
+                        "borderColor": {
                             "constraints": {
                                 "pattern": "^#(?:[0-9a-fA-F]{3,4}){1,2}$",
                                 "required": true,
@@ -153,11 +169,14 @@ Resources:
             "values": {
                 "header": {
                     "enabled": ${FlagHeader},
-                    "backgroundColor": "#A9A9A9",
-                    "textColor": "#FAEBD7",
+                    "backgroundColor": "#015cfe",
+                    "borderColor": "#04006c",
+                    "textColor": "#5128f2",
                     "enableLogin": true
                 },
                 "footer": {
+                    "backgroundColor": "#015cfe",
+                    "borderColor": "#04006c",
                     "copyright": [
                         "2022",
                         "Some Company Name.",
@@ -173,8 +192,7 @@ Resources:
                         98,
                         123
                     ],
-                    "textColor": "#FAEBD7",
-                    "backgroundColor": "#696969"
+                    "textColor": "#5128f2"
                 },
                 "short-term-feature": {
                     "enabled": ${FlagShortTermFeature},
