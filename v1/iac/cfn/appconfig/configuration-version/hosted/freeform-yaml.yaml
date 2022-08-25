@@ -61,14 +61,14 @@ Resources:
       Description: !Ref Description
       ContentType: "application/x-yaml" #This is the mime type that the console sets when creating YAML configurations, so sticking with it.
       Content: !Sub |
-        Body:
-          Author: "${Author}"
-          Description: "${SiteDescription}"
-          Image: "${ImageUrl}"
-          Subtitle: "${Subtitle}"
-          Title: "${Title}"
-          Type: "${SiteType}"
-          Url: "${SiteUrl}"
+        body:
+          author: "${Author}"
+          description: "${SiteDescription}"
+          image: "${ImageUrl}"
+          subtitle: "${Subtitle}"
+          title: "${Title}"
+          type: "${SiteType}"
+          url: "${SiteUrl}"
   ParamAppConfigHostedConfigurationVersionId:
     Type: "AWS::SSM::Parameter"
     Properties:

@@ -4,6 +4,7 @@ import { AppConfigDataClient,
          BadRequestException,
          GetLatestConfigurationCommand,
          StartConfigurationSessionCommand } from "@aws-sdk/client-appconfigdata"; //AWS AppConfig Classes
+import cache from "cache"; /* Simple caching Module */
 import fs from "fs"; /* File System Module */
 import http from "http"; /* Simple HTTP Server Module */
 import path from "path";
@@ -15,23 +16,25 @@ import YAML from "yaml"; /* YAML parsing */
 //process.env.AWS_PROFILE = "<profile>";
 
 //Main Constants
-const ENVIRONMENT=process.env.ENVIRONMENT || "NONE",
-      REGION=process.env.REGION || "NONE",
-      HEALTH_CHECK_PATH=process.env.HEALTH_CHECK_PATH || "/hc/",
-      HOSTNAME=process.env.HOSTNAME || "localhost",
-      LOGIN=process.env.LOGIN || "DEFAULT",
-      PASSWD=process.env.PASSWD || "DEFAULT",
-      PORT=process.env.PORT || 8080,
+const __filename = url.fileURLToPath(import.meta.url),
+      __dirname = path.dirname(__filename),
+      APP_CONFIG_CACHE = process.env.APP_CONFIG_CACHE || 15, /* AppConfig cache time in seconds  */
       APP_CONFIG_REGION = process.env.APP_CONFIG_REGION || "us-east-2",
       APP_CONFIG_FEATURE_FLAG_APP_IDENTIFIER = process.env.APP_CONFIG_FEATURE_FLAG_APP_IDENTIFIER || "boilerplate-fargate-appconfig-feature-flag",
       APP_CONFIG_FREEFORM_APP_IDENTIFIER = process.env.APP_CONFIG_FREEFORM_APP_IDENTIFIER || "boilerplate-fargate-appconfig-freeform",
       APP_CONFIG_CONFIG_PROFILE_IDENTIFIER = process.env.APP_CONFIG_CONFIG_PROFILE_IDENTIFIER || "int",
       APP_CONFIG_ENVIRONMENT_IDENTIFIER = process.env.APP_CONFIG_ENVIRONMENT_IDENTIFIER || "int",
-      __filename = url.fileURLToPath(import.meta.url),
-      __dirname = path.dirname(__filename);
+      ENVIRONMENT=process.env.ENVIRONMENT || "NONE",
+      HEALTH_CHECK_PATH=process.env.HEALTH_CHECK_PATH || "/hc/",
+      HOSTNAME=process.env.HOSTNAME || "localhost",
+      LOGIN=process.env.LOGIN || "DEFAULT",
+      PASSWD=process.env.PASSWD || "DEFAULT",
+      PORT=process.env.PORT || 8080,
+      REGION=process.env.REGION || "NONE";
 
 // AppConfig client (which can be shared by different commands).
-const client = new AppConfigDataClient({ region: APP_CONFIG_REGION });
+const client = new AppConfigDataClient({ region: APP_CONFIG_REGION }),
+      configCache = new cache(APP_CONFIG_CACHE * 1000); /* Cache with 10-second TTL */
 
 // Parameters for the AppConfig sessions.
 const appConfigFeatureFlag = {
@@ -64,18 +67,11 @@ global.config = {};
 
 function checkCredentials() {
 
-  console.info("Checking for credentials...");
+  console.info("Checking for AWS credentials...");
+
   //Make sure that the AWS SDK has credentials before we try to interact with AppConfig.
-  Promise.resolve(client.config.credentials()).then(checkFreeformConfig,setDefaultConfigs);
+  Promise.resolve(client.config.credentials()).then(fillConfigCache,setDefaultConfigs);
 
-}
-
-function checkFeatureFlags() {
-  Promise.all([getFeatureFlags()]).then(startService,failure);
-}
-
-function checkFreeformConfig() {
-  Promise.all([getFreeformConfig()]).then(checkFeatureFlags,failure);
 }
 
 // Fail the initialization if the promises fail.
@@ -86,18 +82,10 @@ function failure(error) {
 
 }
 
-// Get a single feature flag.
-function getFeatureFlag(flag) {
+function fillConfigCache() {
 
-  if (global.flags && flag) {
-
-    return global.flags[flag];
-
-  } else {
-
-    return {};
-
-  }
+  //Get both configurations and putting them in a basic cache.
+  Promise.all([getFreeformConfig(),getFeatureFlags()]).then(startService,failure);
 
 }
 
@@ -140,6 +128,8 @@ function getFeatureFlags() {
         const allFlags = JSON.parse(configuration);
 
         global.flags = Object.assign({}, allFlags);
+
+        configCache.put("flags",global.flags);
 
       }
 
@@ -210,6 +200,8 @@ function getFreeformConfig() {
         const freeFormConfig = YAML.parse(configuration);
 
         global.config = Object.assign({}, freeFormConfig);
+
+        configCache.put("config",global.config);
 
       }
 
@@ -294,51 +286,35 @@ function handleRequest(request, response) {
   let credentials = auth(request),
   parsedUrl = url.parse(request.url);
 
-  //handleRequest Supporting Functions
-  function displayPage() {
+  function checkCache() {
 
-    function preparePage(page) {
+    let config = configCache.get("config"),
+        flags = configCache.get("flags");
 
-      //Proceess the page template.
-      return template(page,{Flags:global.flags,Config:global.config});
+    if (config == null || flags == null) {
 
-    }
-
-    //The following credentials will have to be replaced with environment variables when this goes to production.
-    if (!credentials || credentials.name !== LOGIN || credentials.pass !== PASSWD) {
-
-      //Send an error message if there are bad credentails or no credentials.
-      response.statusCode = 401;
-      response.setHeader("WWW-Authenticate", "Basic realm=\"Node.js Boilerplate Login\"");
-      response.end("Access Denied");
+      console.info("Cache is empty, need to reset...");
+      Promise.all([getFreeformConfig(),getFeatureFlags()]).then(displayHomepage,failure);
 
     } else {
 
-      response.writeHead(200, {"Content-Type": "text/html; charset=UTF-8"});
-      response.write(preparePage(htmlFiles["page-header.html"]));
-
-      if (global.flags.header.enabled === true) {
-        response.write(preparePage(htmlFiles["body-header-new.html"]));
-      } else {
-        response.write(preparePage(htmlFiles["body-header-old.html"]));
-      }
-
-      response.write(preparePage(htmlFiles["body-main.html"]));
-
-      if (global.flags.footer.enabled === true) {
-        response.write(preparePage(htmlFiles["body-footer-new.html"]));
-      } else {
-        response.write(preparePage(htmlFiles["body-footer-old.html"]));
-      }
-
-      response.write(preparePage(htmlFiles["page-footer.html"]));
-      response.end();
+      console.info("Cache is set, loading the homepage...");
+      displayHomepage();
 
     }
 
   }
 
-  function packageFileDetails(err, data) {
+  function displayBasicAuth() {
+
+      //Send an error message if there are bad credentails or no credentials.
+      response.statusCode = 401;
+      response.setHeader("WWW-Authenticate", "Basic realm=\"Basic Auth Login\"");
+      response.end("Access Denied");
+
+  }
+
+  function displayHealthCheck(err, data) {
 
     //packageFileDetails Supporting Functions
     function githubFileDetails(err, data) {
@@ -408,6 +384,51 @@ function handleRequest(request, response) {
 
   }
 
+  function displayHomepage() {
+
+    response.writeHead(200, {"Content-Type": "text/html; charset=UTF-8"});
+    response.write(preparePage(htmlFiles["page-header.html"]));
+
+    if (global.flags.header.enabled === true) {
+      response.write(preparePage(htmlFiles["body-header-new.html"]));
+    } else {
+      response.write(preparePage(htmlFiles["body-header-old.html"]));
+    }
+
+    response.write(preparePage(htmlFiles["body-main.html"]));
+
+    if (global.flags.footer.enabled === true) {
+      response.write(preparePage(htmlFiles["body-footer-new.html"]));
+    } else {
+      response.write(preparePage(htmlFiles["body-footer-old.html"]));
+    }
+
+    response.write(preparePage(htmlFiles["page-footer.html"]));
+    response.end();
+
+  }
+
+  function displayPage() {
+
+    if (!credentials || credentials.name !== LOGIN || credentials.pass !== PASSWD) {
+
+      displayBasicAuth();
+
+    } else {
+
+      checkCache();
+
+    }
+
+  }
+
+  function preparePage(page) {
+
+    //Proceess the page template.
+    return template(page,{config:configCache.get("config"),flags:configCache.get("flags")});
+
+  }
+
   //Function Logic
 
   //If this is the health check path...
@@ -415,7 +436,7 @@ function handleRequest(request, response) {
 
     let status = {};
 
-    fs.readFile("/package.json", "utf8", packageFileDetails);
+    fs.readFile("/package.json", "utf8", displayHealthCheck);
 
   //If any other path...
   } else {
@@ -487,9 +508,6 @@ function setDefaultConfigs() {
 
   console.warn("No valid AWS SDK credentials were found.");
 
-  console.warn(`process.env.AWS_CONTAINER_CREDENTIALS_FULL_URI: ${process.env.AWS_CONTAINER_CREDENTIALS_FULL_URI}`);
-  console.warn(`process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: ${process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI}`);
-
   //Set a generic default config since there are no credentials for the AWS SDK.
   global.config = {
     Body: {
@@ -503,6 +521,8 @@ function setDefaultConfigs() {
     }
   };
 
+  configCache.put("config",global.config);
+
   //Set some default falgs since there are no credentials for the AWS SDK.
   global.flags = {
     footer: {
@@ -512,6 +532,8 @@ function setDefaultConfigs() {
       enabled: false
     }
   };
+
+  configCache.put("flags",global.flags);
 
   //Start the service with the default values.
   startService();

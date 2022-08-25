@@ -68,6 +68,10 @@ Parameters:
   ApplicationFeatureFlagId:
     Type: "String"
     Description: "The ID of the Feature Flag application."
+  ApplicationConfigCache:
+    Type: "Number"
+    Description: "Set the AppConfig cache time (in seconds)."
+    Default: 20
   # ProfileType:
   #   Type: "String"
   #   Description: "The type of configuration profile."
@@ -367,6 +371,8 @@ Resources:
           Value: !Ref HealthCheckPath
         - Name: "PORT"
           Value: !Ref ContainerPort
+        - Name: "APP_CONFIG_CACHE"
+          Value: !Ref ApplicationConfigCache
         - Name: "APP_CONFIG_REGION"
           Value: !Ref ApplicationRegion
         - Name: "APP_CONFIG_FEATURE_FLAG_APP_IDENTIFIER"
@@ -501,6 +507,7 @@ Metadata:
         default: "AppConfig Configuration"
       Parameters:
       - ApplicationName
+      - ApplicationConfigCache
       - ApplicationRegion
       - ApplicationFreeformId
       - ApplicationFeatureFlagId
@@ -598,6 +605,8 @@ Metadata:
         default: "Application Name:"
       ApplicationRegion:
         default: "Application Region:"
+      ApplicationConfigCache:
+        default: "Application Config Cache:"
       ApplicationFreeformId:
         default: "Application Freeform ID:"
       ApplicationFeatureFlagId:
