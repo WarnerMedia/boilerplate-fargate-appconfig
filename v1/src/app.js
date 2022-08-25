@@ -386,24 +386,40 @@ function handleRequest(request, response) {
 
   function displayHomepage() {
 
+    let cssContent = preparePage(htmlFiles["html/css/style-old.html"]);
+
+    if (global.flags.header.enabled === true || global.flags.footer.enabled === true) {
+
+      cssContent = preparePage(htmlFiles["html/css/style-new.html"]);
+
+    }
+
     response.writeHead(200, {"Content-Type": "text/html; charset=UTF-8"});
-    response.write(preparePage(htmlFiles["page-header.html"]));
+    response.write(preparePage(htmlFiles["html/page/header.html"],cssContent));
 
     if (global.flags.header.enabled === true) {
-      response.write(preparePage(htmlFiles["body-header-new.html"]));
+
+      response.write(preparePage(htmlFiles["html/body/header-new.html"]));
+
     } else {
-      response.write(preparePage(htmlFiles["body-header-old.html"]));
+
+      response.write(preparePage(htmlFiles["html/body/header-old.html"]));
+
     }
 
-    response.write(preparePage(htmlFiles["body-main.html"]));
+    response.write(preparePage(htmlFiles["html/body/main.html"]));
 
     if (global.flags.footer.enabled === true) {
-      response.write(preparePage(htmlFiles["body-footer-new.html"]));
+
+      response.write(preparePage(htmlFiles["html/body/footer-new.html"]));
+
     } else {
-      response.write(preparePage(htmlFiles["body-footer-old.html"]));
+
+      response.write(preparePage(htmlFiles["html/body/footer-old.html"]));
+
     }
 
-    response.write(preparePage(htmlFiles["page-footer.html"]));
+    response.write(preparePage(htmlFiles["html/page/footer.html"]));
     response.end();
 
   }
@@ -422,10 +438,12 @@ function handleRequest(request, response) {
 
   }
 
-  function preparePage(page) {
+  function preparePage(page,cssContent) {
+
+    let CSS_CONTENT = cssContent || "";
 
     //Proceess the page template.
-    return template(page,{config:configCache.get("config"),flags:configCache.get("flags")});
+    return template(page,{config:configCache.get("config"),flags:configCache.get("flags"),CSS_CONTENT:CSS_CONTENT});
 
   }
 
@@ -449,9 +467,9 @@ function handleRequest(request, response) {
 
 function init() {
 
-  function getHtmlFiles() {
+  function getHtmlFiles(baseDirectory) {
 
-    let directory = path.join(__dirname, "html");
+    let directory = path.join(__dirname, baseDirectory);
     let fileList = fs.readdirSync(directory);
     //let promises = fileList.map(file => readFileContent(path.join(directory, file),file));
 
@@ -465,14 +483,9 @@ function init() {
             reject(error);
           }
 
-          // function parseLine(line) {
-          //   return line.trim();
-          // }
-
-          //let fileContent = data.toString().split(/(?:\r\n|\r|\n)/g).map(parseLine).filter(Boolean);
           let fileContent = data.toString();
       
-          resolve(processFile(file,fileContent));
+          resolve(processFile(baseDirectory,file,fileContent));
       
         }
   
@@ -488,19 +501,20 @@ function init() {
 
     let promises = fileList.map(readFileContent);
 
-    Promise.all(promises).then(checkCredentials,failure);
+    return promises;
 
   }
 
-  function processFile(file,fileContent) {
+  function processFile(directory,file,fileContent) {
 
-    htmlFiles[file] = fileContent;
 
-    console.log(`File Name: ${file}`);
+    htmlFiles[`${directory}/${file}`] = fileContent;
+
+    console.log(`File Name: ${directory}/${file}`);
 
   }
 
-  getHtmlFiles();
+  Promise.all([getHtmlFiles("html/body"),getHtmlFiles("html/css"),getHtmlFiles("html/page")].flat()).then(checkCredentials,failure);
 
 }
 
@@ -510,14 +524,14 @@ function setDefaultConfigs() {
 
   //Set a generic default config since there are no credentials for the AWS SDK.
   global.config = {
-    Body: {
-      Author: "Default Author",
-      Description: "Default Description",
-      Image: "https://via.placeholder.com/300",
-      Subtitle: "Default Subtitle",
-      Title: "AppConfig Feature Flag and Freeform Config Demo Site",
-      Type: "website",
-      Url: "www.example.com"
+    body: {
+      author: "Default Author",
+      description: "Default Description",
+      image: "https://via.placeholder.com/300",
+      subtitle: "Default Subtitle",
+      title: "AppConfig Feature Flag and Freeform Config Demo Site",
+      type: "website",
+      url: "www.example.com"
     }
   };
 
