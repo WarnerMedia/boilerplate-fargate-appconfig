@@ -27,7 +27,7 @@ Parameters:
   ImageUrl:
     Type: "String"
     Description: "This is a sample image URL parameter for adding values to the profile configuration."
-    Default: "https://placekitten.com/g/300/300" # placeholder.com and placekitten.com are free services for placeholder images.
+    Default: "https://placekitten.com/300/300" # placeholder.com and placekitten.com are free services for placeholder images.
   Title:
     Type: "String"
     Description: "Title for the site."

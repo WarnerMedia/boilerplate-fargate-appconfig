@@ -1,15 +1,22 @@
 <style type="text/css">
+
     html {
       font-family: arial, sans-serif;
     }
 
     body {
       background-color: white;
+      color: black;
       padding: 0px;
       margin: 0px;
     }
 
-    h1, h2 {
+    h1 {
+      text-align: center;
+      padding: 0px 20px 0px 20px;
+    }
+
+    h2 {
       text-align: center;
       padding: 0px 20px 0px 20px;
     }
@@ -18,8 +25,21 @@
       padding: 0px 20px 0px 20px;
     }
 
+    figure {
+      float: right;
+      margin: 0px 20px 0px 20px;
+    }
+
+    figcaption {
+      text-align: center;
+    }
+
     img {
-      padding: 10px;
+      border-radius: 0px;
+      border-bottom: 1px solid black;
+      border-top: 1px solid black;
+      margin: 2px 0px 2px 0px;
+      padding: 5px;
     }
 
     .container {
@@ -30,45 +50,46 @@
 
     main {
       flex: 1 0 auto;
-      border-radius: 25px;
-      border: 2px solid #73AD21;
-      width: 600px;
+      /* border-radius: 25px;
+      border: 2px solid black; */
+      width: 800px;
       margin-left: auto;
       margin-right: auto;
       margin-top: 10px;
       margin-bottom: 10px;
-      padding-top: 20px;
-      padding-bottom: 20px;
+      padding-top: 10px;
+      padding-bottom: 10px;
     }
 
     header, footer {
       flex-shrink: 0;
-      border-radius: 25px;
-      border: 2px solid #73AD21;
-      width: 600px;
-      margin-left: auto;
-      margin-right: auto;
+      /* border-radius: 25px; */
+      width: 100%;
+      /* margin-left: auto;
+      margin-right: auto; */
       margin-top: 10px;
       margin-bottom: 10px;
       text-align: center;
-      padding-top: 20px;
-      padding-bottom: 20px;
+      padding-top: 10px;
+      padding-bottom: 10px;
     }
 
     header {
+      background-color: gray;
       border-top-left-radius:0px;
       border-top-right-radius:0px;
-      border-top: 0px;
+      border-bottom: 4px solid black;
       margin-top: 0px;
-      text-color: ${flags.header.textColor};
+      color: white;
     }
 
     footer {
-      background-color: ${flags.footer.backgroundColor};
+      background-color: gray;
       border-bottom-left-radius:0px;
       border-bottom-right-radius:0px;
-      border-bottom: 0px;
+      border-top: 4px solid black;
       margin-bottom: 0px;
+      color: white;
     }
 
   </style>
