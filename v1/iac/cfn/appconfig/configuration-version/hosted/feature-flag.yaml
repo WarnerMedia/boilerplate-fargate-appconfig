@@ -153,7 +153,7 @@ Resources:
                         "status": "planned"
                     },
                     "attributes": {
-                        "version": {
+                        "featureVersion": {
                             "constraints": {
                                 "maximum": 9999,
                                 "minimum": 1,
@@ -170,13 +170,13 @@ Resources:
                 "header": {
                     "enabled": ${FlagHeader},
                     "backgroundColor": "#015cfe",
-                    "borderColor": "#04006c",
-                    "textColor": "#5128f2",
+                    "borderColor": "#5128f2",
+                    "textColor": "#04006c",
                     "enableLogin": true
                 },
                 "footer": {
                     "backgroundColor": "#015cfe",
-                    "borderColor": "#04006c",
+                    "borderColor": "#5128f2",
                     "copyright": [
                         "&copy; 2022",
                         "Some Company Name.",
@@ -192,11 +192,11 @@ Resources:
                         98,
                         123
                     ],
-                    "textColor": "#5128f2"
+                    "textColor": "#04006c"
                 },
                 "short-term-feature": {
                     "enabled": ${FlagShortTermFeature},
-                    "version": 1
+                    "featureVersion": 1
                 }
             },
             "version": "1"

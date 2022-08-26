@@ -6,6 +6,7 @@
 
     body {
       background-color: white;
+      color: black;
       padding: 0px;
       margin: 0px;
     }
@@ -24,9 +25,20 @@
       padding: 0px 20px 0px 20px;
     }
 
-    img {
+    figure {
       float: right;
-      padding: 10px;
+      margin: 0px 20px 0px 20px;
+    }
+
+    figcaption {
+      text-align: center;
+    }
+
+    img {
+      border-radius: 5px;
+      border: 2px solid ${flags.header.borderColor};
+      margin: 2px 0px 2px 0px;
+      padding: 5px;
     }
 
     .container {
@@ -63,12 +75,12 @@
 
     header {
       border: 2px solid ${flags.header.borderColor};
-      background-color: ${flags.footer.backgroundColor};
+      background-color: ${flags.header.backgroundColor};
       border-top-left-radius:0px;
       border-top-right-radius:0px;
       border-top: 0px;
       margin-top: 0px;
-      text-color: ${flags.header.textColor};
+      color: ${flags.header.textColor};
     }
 
     footer {
@@ -78,7 +90,7 @@
       border-bottom-right-radius:0px;
       border-bottom: 0px;
       margin-bottom: 0px;
-      text-color: ${flags.footer.textColor};
+      color: ${flags.footer.textColor};
     }
 
   </style>
