@@ -19,11 +19,11 @@ import YAML from "yaml"; /* YAML parsing */
 const __filename = url.fileURLToPath(import.meta.url),
       __dirname = path.dirname(__filename),
       APP_CONFIG_CACHE = process.env.APP_CONFIG_CACHE || 15, /* AppConfig cache time in seconds  */
-      APP_CONFIG_REGION = process.env.APP_CONFIG_REGION || "us-east-2",
+      APP_CONFIG_ENVIRONMENT_IDENTIFIER = process.env.APP_CONFIG_ENVIRONMENT_IDENTIFIER || "int",
       APP_CONFIG_FEATURE_FLAG_APP_IDENTIFIER = process.env.APP_CONFIG_FEATURE_FLAG_APP_IDENTIFIER || "boilerplate-fargate-appconfig-feature-flag",
       APP_CONFIG_FREEFORM_APP_IDENTIFIER = process.env.APP_CONFIG_FREEFORM_APP_IDENTIFIER || "boilerplate-fargate-appconfig-freeform",
-      APP_CONFIG_CONFIG_PROFILE_IDENTIFIER = process.env.APP_CONFIG_CONFIG_PROFILE_IDENTIFIER || "int",
-      APP_CONFIG_ENVIRONMENT_IDENTIFIER = process.env.APP_CONFIG_ENVIRONMENT_IDENTIFIER || "int",
+      APP_CONFIG_PROFILE_IDENTIFIER = process.env.APP_CONFIG_PROFILE_IDENTIFIER || "int",
+      APP_CONFIG_REGION = process.env.APP_CONFIG_REGION || "us-east-2",
       ENVIRONMENT=process.env.ENVIRONMENT || "NONE",
       HEALTH_CHECK_PATH=process.env.HEALTH_CHECK_PATH || "/hc/",
       HOSTNAME=process.env.HOSTNAME || "localhost",
@@ -39,13 +39,13 @@ const client = new AppConfigDataClient({ region: APP_CONFIG_REGION }),
 // Parameters for the AppConfig sessions.
 const appConfigFeatureFlag = {
   ApplicationIdentifier: APP_CONFIG_FEATURE_FLAG_APP_IDENTIFIER,
-  ConfigurationProfileIdentifier: APP_CONFIG_CONFIG_PROFILE_IDENTIFIER,
+  ConfigurationProfileIdentifier: APP_CONFIG_PROFILE_IDENTIFIER,
   EnvironmentIdentifier: APP_CONFIG_ENVIRONMENT_IDENTIFIER
 };
 
 const appConfigFreeform = {
   ApplicationIdentifier: APP_CONFIG_FREEFORM_APP_IDENTIFIER,
-  ConfigurationProfileIdentifier: APP_CONFIG_CONFIG_PROFILE_IDENTIFIER,
+  ConfigurationProfileIdentifier: APP_CONFIG_PROFILE_IDENTIFIER,
   EnvironmentIdentifier: APP_CONFIG_ENVIRONMENT_IDENTIFIER
 };
 
