@@ -373,14 +373,16 @@ Resources:
           Value: !Ref ContainerPort
         - Name: "APP_CONFIG_CACHE"
           Value: !Ref ApplicationConfigCache
-        - Name: "APP_CONFIG_REGION"
-          Value: !Ref ApplicationRegion
+        - Name: "APP_CONFIG_ENVIRONMENT_IDENTIFIER"
+          Value: !Ref TagEnvironment
         - Name: "APP_CONFIG_FEATURE_FLAG_APP_IDENTIFIER"
           Value: !Ref ApplicationFeatureFlagId
         - Name: "APP_CONFIG_FREEFORM_APP_IDENTIFIER"
           Value: !Ref ApplicationFreeformId
-        - Name: "APP_CONFIG_ENVIRONMENT_IDENTIFIER"
+        - Name: "APP_CONFIG_PROFILE_IDENTIFIER"
           Value: !Ref TagEnvironment
+        - Name: "APP_CONFIG_REGION"
+          Value: !Ref ApplicationRegion
         - Name: !If [ Env1, !Ref EnvName1, "ENV1" ]
           Value: !If [ Env1, !Ref EnvValue1, !Ref "AWS::NoValue" ]
         - Name: !If [ Env2, !Ref EnvName2, "ENV2" ]
