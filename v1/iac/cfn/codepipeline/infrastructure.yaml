@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create the CodePipeline needed to build the base infrastructure for this service - (v1.3.0)"
+Description: "Create the CodePipeline needed to build the base infrastructure for this service - (v1.3.1)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -3804,7 +3804,6 @@ Resources:
                   "CodeBuildAppTestProject": "${ProjectName}-app-test",
                   "CodeBuildInfrastructureTestProject": "${ProjectName}-infrastructure-test",
                   "CodeBuildSecurityTestProject": "${ProjectName}-security-test",
-                  "CodeBuildPromoteProject": "${ProjectName}-promote",
                   "CodeBuildPostProdProject": "${ProjectName}-post-production",
                   "AppBaseFolder": "${AppBaseFolder}",
                   "ActionMode": "${ServiceActionMode}",
