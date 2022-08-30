@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create the CodePipeline needed to deploy this service - (v1.2.0)"
+Description: "Create the CodePipeline needed to deploy this service - (v1.2.1)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -28,6 +28,7 @@ Parameters:
   CodeBuildPromoteProject:
     Type: "String"
     Description: "The name of the CodeBuild promote project."
+    Default: ""
   CodeBuildPostProdProject:
     Type: "String"
     Description: "The name of the CodeBuild post-production project."

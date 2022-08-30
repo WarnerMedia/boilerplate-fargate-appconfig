@@ -1,6 +1,12 @@
-# Boilerplate for Deploying a Node.js Application to Fargate using CodePipeline
+# Boilerplate for Using AWS AppConfig With an AWS Fargate Application
 
-This repository provides boilerplate for deploying a simple Node.js application to AWS Fargate.
+This repository provides boilerplate for the following:
+
+1. Using [GitOps](https://about.gitlab.com/topics/gitops/) with AWS [CodeBuild](https://aws.amazon.com/codebuild/)/[CodePipeline](https://aws.amazon.com/codepipeline/) to deploy infrastructure using AWS [CloudFormation](https://aws.amazon.com/cloudformation/) templates.
+2. Deploy a [Node.js](https://nodejs.org) [Fargate](https://aws.amazon.com/fargate/) application to multiple accounts and environments (in up to two different regions).
+3. Deploy a YAML Freeform [AppConfig](https://docs.aws.amazon.com/systems-manager/latest/userguide/appconfig.html) configuration to multiple environments (in up to two different regions).  This is used for basic configuration of the Node.js application.
+4. Deploy a Feature Flag [AppConfig](https://docs.aws.amazon.com/systems-manager/latest/userguide/appconfig.html) configuration to multiple environments (in up to two different regions).  This is used to enable/disable features of the application.
+5. Leverage [Cucumber.js](https://cucumber.io) for unit testing both the application and the infrastructure.
 
 ---
 **NOTE**
@@ -31,7 +37,7 @@ This repository should never be used directly, the "Use this template" button sh
 # Design Goals/Highlights
 
 1. Control when infrastructure or application changes are deployed using configuration files.
-2. Use a flavor of trunk-based development: https://trunkbaseddevelopment.com/
+2. Use a flavor of [trunk-based development](https://trunkbaseddevelopment.com/).
 3. Make use of the GitHub API to help manage patch level revisions.
 4. Create formal releases in GitHub using the GitHub API.
 5. Minimize the number of GitHub webhooks needed.
@@ -44,7 +50,7 @@ This repository should never be used directly, the "Use this template" button sh
 12. Take advantage of the latest CodeBuild/CodePipeline features.
 13. Create working examples of application and infrastructure testing.
 14. Do some clean-up of the Node.js example service.
-15. Encourage the use of "Conventional Commits" to help make commit message more meaningful: https://www.conventionalcommits.org/
+15. Encourage the use of ["Conventional Commits"](https://www.conventionalcommits.org/) to help make commit message more meaningful.
 16. Separation of duties, using different CodePipelines for different purposes to make things more modular and easier to maintain.
 17. Create a helper script to make initial setup easier.
 18. Think about how to manage versions from the start (to make things easier to maintain in the future).
@@ -67,7 +73,7 @@ This repository should never be used directly, the "Use this template" button sh
 5. This boilerplate is missing functionality, has broken functionality, or I don't like how something works, what do I do?
     - This boilerplate is intended to be a solid starting point for your project.  Since you will be making your own copy of this repository, you can make any changes/enhancements you need to your copy (in order to meet the requirements of your project).
     - If there is missing or broken functionality, please feel free to put in a pull request with the bug fix or enhancement.
-    - If you don't like how something works, contact one of the current maintainers to discuss your suggested changes, or put in a pull request with the suggested changes.
+    - If you don't like how something works, contact one of the current maintainers to discuss your suggested changes, put in a pull request with the suggested changes, or log an [issue](../../issues) in GitHub.
     - **NOTE:** Please do not merge in any pull requests to this repository without review from one of the project maintainers.
 
 # License
