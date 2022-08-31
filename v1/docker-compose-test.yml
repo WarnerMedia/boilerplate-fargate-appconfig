@@ -2,9 +2,9 @@ version: "3"
 
 services:
   website:
-    build: .
+    image: ${TEST_IMAGE}
     env_file:
-    - "docker-compose.env"
+    - "docker-compose-test.env"
     hostname: "localhost"
     ports:
     - "8080:8080"
