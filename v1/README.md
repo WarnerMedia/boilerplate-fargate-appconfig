@@ -1,10 +1,12 @@
-# Fargate Trunk-Based Deployment (v1)
+# AppConfig/Fargate Application Trunk-Based Deployment (v1)
 
 ## Table of Contents
 
 - [Folder Structure](#folder-structure)
 - [Install/Initial Setup](#installinitial-setup)
 - [Local Application Development](#local-application-development)
+- [AppConfig Services](#appconfig-services)
+- [Fargate Services](#fargate-services)
 - [GitHub Branch Flow](#github-branch-flow)
 - [AWS CodeBuild/CodePipeline Infrastructure](#aws-codebuildcodepipeline-infrastructure)
 - [CodePipeline Testing Stages](#codepipeline-testing-stages)
@@ -185,7 +187,9 @@ Your local system will need to have the following installed:
 ---
 **NOTE**
 
-By default, the `docker-compose.yml` file in this folder is set up to work with a remote image (to be used for the applicaitn testing CodePipeline stage).  You will have to modify the file slightly for local development (and then switch things back when done).  Optionally, you could split into two different Docker Compose files.
+By default, the `docker-compose.yml` file in this folder is set up for local development.  It works with the local `Dockerfile` when you are doing local development.
+
+The `docker-compose-test.yml` file in this folder is set up for CodeBuild to use for application testing.  It works with images pulled from ECR.
 
 ---
 
@@ -193,10 +197,119 @@ By default, the `docker-compose.yml` file in this folder is set up to work with 
 
 1. Make any needed changes to the application in the `src` folder.
 2. Make any needed changes to your `Dockerfile` file in this folder.
-3. Make any needed changes to the `docker-compose.yml` file in this folder.
-4. To build the image locally, run the following command from the same folder as the `docker-compose.yml` file: `docker-compose build`
-5. Once the image has finished building, it can be spun up by running the following command: `docker-compose up`
-6. You should then be able to pull up your application in a web browser (e.g. [http://localhost:8080/hc/](http://localhost:8080/hc/))
+3. If you need to update any of the environment variables, you can update them in the `docker-compose.env` file.
+4. Make any needed changes to the `docker-compose.yml` file in this folder.
+5. To build the image locally, run the following command from the same folder as the `docker-compose.yml` file: `docker-compose build`
+6. Once the image has finished building, it can be spun up by running the following command: `docker-compose up`
+7. You should then be able to pull up your application in a web browser (e.g. [http://localhost:8080/hc/](http://localhost:8080/hc/))
+8. When you are done testing, you can stop the application pressing `ctrl+c`.
+
+---
+**NOTE**
+
+When working with Docker, if you make changes to any files that are used in the `Dockerfile`, then you need to rebuild the local image, which is done using this command: `docker-compose build`
+
+---
+
+# AppConfig Services
+
+## Overview
+
+AppConfig provides a standard way to host and distribute versioned configurations for your application.  It allows for slow rollout of new versions and can even roll back changes automatically (if a specified error rate is reached).
+
+A lot of simple applications use environment variables to configure their application.  Though this does work, it has the following drawbacks:
+
+1. In order to update an environment variable, you need to roll out a new version of the application, this is time-consuming and the response simply may not be fast enough.
+2. This gets messy as these variables mix in with the other environment variables (which might not be part of the application configuration).
+3. Environment variables are basically just strings, though you can put a JSON string into an environment variable, that string can get annoying to manage.
+4. Only someone who has the access and know-how to deploy the application can make an update to the configuration.
+5. You could not use an environment variable to activate a feature after the new version of an application has been deployed, it would get activated at the time of deployment.
+
+AppConfig helps solve the above issues by getting all of your application configuration in one place and making it available via AWS SDKs and CLI.
+
+AWS AppConfig currently supports two different types of configuration profiles:
+
+1. Freeform: This version allows you to create freeform JSON, Text, or YAML configurations.
+2. Feature Flags: This version allows you to create a JSON configuration which has flags you can toggle on and off.  These flags can also have attributes.
+
+It is nice to have both the Freeform and Feature Flag AppConfig configuration profiles, as they can serve different purposes.
+
+Application configurations and feature flags are very useful tools for modern trunk-based deployment flows.  They reduce the need for deploynment rollbacks and allow you to fully deploy a new version of an application before you enable a new feature.  AppConfig covers all the basics that an application would need for configuration and feature flags.
+
+## Implementation
+
+For this implementation, there are two types of AppConfig configuration profiles for each environment:
+
+1. YAML Freeform configuration:
+    - Used for basis application configuration.
+    - Things like the application name, API URLs, CDN image root, etc. can be configured using this Freeform configuration.
+    - Though the example uses YAML, JSON and basic text are also supported.
+    - We chose YAML for this example to highlight the fact that AppConfig can support different configuration formats.
+2. Feature Flag configuration:
+    - This configuration can be used to enable and disable features of the application.
+    - Unlike the Freeform configuration, what is sent to the application is always JSON.
+    - When in the console, the flags will appear as toggles with attributes, the JSON will not be visible.
+    - When a feature is activated, all of the attributes associated with that feature will be sent as part of the JSON configuration.
+
+## Pros and Cons
+
+There are a lot of application configuration and feature flag services out there; here are some pros and cons to using AppConfig as your solution:
+
+### Pros
+
+1. If you are already working primarily with AWS services, this is another service you can just add to your project.  You are already familiar with AWS as a vendor and know how to work with the permissions, etc.
+2. AppConfig can be deployed using Infrastructure as Code (IaC), so you can deploy and maintain your configurations using GitOps.
+3. You have the option to do instant deployments or roll them out slowly (to reduce the impact of a potentially bad configuration).
+4. Rollbacks can be done automatically based on metrics that you configure.
+5. Having both Freeform and Feature Flag profiles gives you a lot of flexibility in your implementation.
+6. Since AppConfig works with AWS SDKs and CLI, you could manage AppConfig from your existing CMS by creating an integration.
+7. Since configurations are versioned, rolling back to a previous revision is easy and it is also easy to look back at changes over time.
+8. You can create your own custom deployment strategies for getting your configurations deployed.
+9. Freeform configurations can be hosted either by AppConfig directly or in S3.
+10. Attributes of Feature Flag configuration profiles can have value validators and can be of different types (strings, numbers, arrays, and boolean).
+
+### Cons
+
+1. By default, the best way to make quick changes is via the AWS Console.  This means that people who need access to update configurations or toggle flags must have AWS Console access.
+2. The AWS Console experience for Freeform configuration profiles doesn't do validation, so confirming your changes are valid is up to you.
+3. The AWS Console experience for Feature Flag configuration profiles does do validation, but depending on what you are validating, some happen client side, and others (like regex), happen server side.
+4. The AWS Console experience is just a bit odd in general.  It doesn't take long to figure out the quirks and get used to them, but this experience needs improvement.
+5. At the time of writing, code examples and documentation could be improved.
+6. A lot of feature flag vendors have features built in to support things like A/B testing.  Unless you got creative with AppConfig, you cannot use it for this purpose at this time.
+7. Though you can set up the same configurations in different regions, unless you want to update the flag in multiple regions each time, you will have to pick a primary region and stick with it.  You could have a backup version in another region, but if there was an outage in the primary region, your code would have to be smart enough to switch over to the backup region or keep the last known good version.
+8. AppConfig is a consumption-based model.  It doesn't seem too expensive, but you will want to make sure your application has some level of caching built in if the application is being used at a large scale.
+
+
+# Fargate Services
+
+## Overview
+
+This demonstration repository makes use of a single-page Node.js application (Docker) container running on AWS Fargate.
+
+---
+**NOTE**
+
+The purpose of this application is to demonstrate how to make use of AppConfig with a basic web application.  The application should be used as a reference for how to use the Node.js AWS SDK with AppConfig and is not optimized to be used in a production setting.
+
+---
+
+## Implementation
+
+Some useful details about the sample Node.js application:
+
+1. By default, the repository is deploying the application to two regions, this helps demonstrate that AppConfig from one region can be used to configure applications in multiple regions.
+2. The Fargate services in each region are behind a load balancer and the load balancer is where HTTPS is terminated.
+3. Route53 is used to split requests between both regions, so traffic is basically divided evenly between the regions.
+4. The application supports Basic Auth. so that even if the application is made public, the content is not immediately visible to everyone.
+5. You have the option to configure the laod balancer to only allow requests from specific CIDR blocks.  This allows you to have applications that are only available inside your VPN, etc.
+6. This is a single-page application with the exception of one route designated for the simple health check.
+7. The application is pulling in both a Freeform and a Feature Flag AppConfig configuration since they generally serve different purposes.
+8. If for some reason we cannot reach AppConfig, the application falls back to a default configurations.
+9. There is a simple cache built into the application so that each page request is not causing a call back to AppConfig.  Though simple, even a basic caching solution can make a huge impact on the cost of using a service such as AppConfig.
+10. Each environment where the application is running has its own configurations, so we can enable and disable features per environment.
+11. Fargate is getting a copy of the image from the region it is running in, so there is region isolation in that regard.
+12. With the default settings, this repository assumes that production is running in its own AWS account.
+
 
 # GitHub Branch Flow
 
