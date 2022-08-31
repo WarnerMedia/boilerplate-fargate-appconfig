@@ -20,7 +20,7 @@ echo "Install the NPM modules..."
 npm install
 
 echo "Run docker compose..."
-docker-compose up -d
+docker-compose -f docker-compose-test.yml up -d
 
 #------------------------------------------------------------------------
 # END: Main Logic

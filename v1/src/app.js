@@ -70,7 +70,7 @@ function checkCredentials() {
   console.info("Checking for AWS credentials...");
 
   //Make sure that the AWS SDK has credentials before we try to interact with AppConfig.
-  Promise.resolve(client.config.credentials()).then(fillConfigCache,setDefaultConfigs);
+  Promise.resolve(client.config.credentials()).then(fillConfigCache,setInitialDefaultConfigs);
 
 }
 
@@ -145,7 +145,10 @@ function getFeatureFlags() {
 
       } else {
 
-        throw error;
+        console.warn("Feature Flag credentials invalid, setting default configs...");
+
+        //Set Default Configs
+        setDefaultFeatureFlagConfigs();
 
       }
 
@@ -217,7 +220,10 @@ function getFreeformConfig() {
 
       } else {
 
-        throw error;
+        console.warn("Freeform credentials invalid, setting default configs...");
+
+        //Set Default Configs
+        setDefaultFreeformConfigs();
 
       }
 
@@ -244,9 +250,7 @@ async function getFeatureFlagToken() {
 
   } catch (error) {
 
-    console.error(error);
-
-    throw error;
+    console.warn("No valid Feature Flag AppConfig token.");
 
   } finally {
 
@@ -267,9 +271,7 @@ async function getFreeformToken() {
 
   } catch (error) {
 
-    console.error(error);
-
-    throw error;
+    console.warn("No valid Freeform AppConfig token.");
 
   } finally {
 
@@ -518,16 +520,16 @@ function init() {
 
 }
 
-function setDefaultConfigs() {
+function setDefaultFreeformConfigs() {
 
-  console.warn("No valid AWS SDK credentials were found.");
+  console.warn("Setting Freeform config defaults.");
 
   //Set a generic default config since there are no credentials for the AWS SDK.
   global.config = {
     body: {
       author: "Default Author",
       description: "Default Description",
-      image: "https://via.placeholder.com/300",
+      image: "https://placekitten.com/g/300/300",
       subtitle: "Default Subtitle",
       title: "AppConfig Feature Flag and Freeform Config Demo Site",
       type: "website",
@@ -536,6 +538,12 @@ function setDefaultConfigs() {
   };
 
   configCache.put("config",global.config);
+
+}
+
+function setDefaultFeatureFlagConfigs() {
+
+  console.warn("Setting Feature Flag config defaults.");
 
   //Set some default falgs since there are no credentials for the AWS SDK.
   global.flags = {
@@ -548,6 +556,16 @@ function setDefaultConfigs() {
   };
 
   configCache.put("flags",global.flags);
+
+}
+
+function setInitialDefaultConfigs() {
+
+  console.warn("No AWS credentials have been set, setting AppConfig defaults.");
+
+  //Set Default Configs
+  setDefaultFreeformConfigs();
+  setDefaultFeatureFlagConfigs();
 
   //Start the service with the default values.
   startService();

@@ -2,7 +2,7 @@
   "Parameters": {
     "ActionMode": "REPLACE_ON_FAILURE",
     "ApprovalEnvironment": "qa",
-    "CodeBuildRunAppTests": "No",
+    "CodeBuildRunAppTests": "Yes",
     "CodeBuildRunInfrastructureTests": "Yes",
     "CodeBuildRunSecurityTests": "No",
     "ServiceEnableCdn": "No",
