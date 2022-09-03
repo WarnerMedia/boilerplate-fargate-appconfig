@@ -1,0 +1,7 @@
+version: "3"
+services:
+  #2022.09.03: This build is taking about 10 minutes to run, seems to hang for about five minutes during the Python install.
+  orchestrator:
+    build: .
+    stdin_open: true
+    tty: true
