@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create an ECS image repository (ECR) for CodeBuild images - (v1.0.0)"
+Parameters:
+  # General Configuration
+  InfrastructureName:
+    Type: "String"
+    Description: "A name used to differentiate this infrastructure from other existing infrastructure."
+    Default: "main"
+  # ECR Configuration
+  EcsRepositoryName:
+    Type: "String"
+    Description: "The base name of the ECS Repository (e.g. boilerplate/foo)."
+    Default: "boilerplate/codebuild"
+  EcrImageCount:
+    Type: "String"
+    Description: "The number of ECR images to keep."
+    Default: "100"
+  EcrImageScanning:
+    Type: "String"
+    Description: "Enable automatic image vulnerability scanning?"
+    AllowedValues:
+    - "true"
+    - "false"
+    Default: "true"  
+  EcrImageTagMutability:
+    Type: "String"
+    Description: "Should tags be mutable or immutable?"
+    AllowedValues:
+    - "MUTABLE"
+    - "IMMUTABLE"
+    Default: "MUTABLE"
+  # Tags
+  TagEnvironment:
+    Type: "String"
+    Description: "What is the environment tag?"
+    AllowedValues:
+    - "int"
+    - "qa"
+    - "stage"
+    - "nonprod"
+    - "prod"
+    - "build"
+    Default: "int"
+Resources:
+  CodeBuildEcr:
+    Type: "AWS::ECR::Repository"
+    Properties:
+      RepositoryName: !Ref EcsRepositoryName
+      # Example policies: https://docs.aws.amazon.com/codebuild/latest/userguide/sample-ecr.html
+      RepositoryPolicyText:
+        {
+          "Version":"2012-10-17",
+          "Statement":[
+              {
+                "Sid":"CodeBuildAccessPrincipal",
+                "Effect":"Allow",
+                "Principal":{
+                    "Service":"codebuild.amazonaws.com"
+                },
+                "Action":[
+                    "ecr:GetDownloadUrlForLayer",
+                    "ecr:BatchGetImage",
+                    "ecr:BatchCheckLayerAvailability"
+                ]
+              }
+          ]
+        }
+      ImageScanningConfiguration:
+        ScanOnPush: !Ref EcrImageScanning
+      ImageTagMutability: !Ref EcrImageTagMutability
+      LifecyclePolicy:
+        LifecyclePolicyText: !Sub |
+          {
+            "rules": [
+            {
+              "rulePriority": 1,
+              "description": "Keep the most recent ${EcrImageCount} images.",
+              "selection": {
+                "tagStatus": "any",
+                "countType": "imageCountMoreThan",
+                "countNumber": ${EcrImageCount}
+              },
+              "action": { "type": "expire" }
+            }]
+          }
+      Tags:
+      - Key: "Name"
+        Value: !Ref "AWS::StackName"
+      - Key: "application"
+        Value: !Ref "AWS::StackName"
+      - Key: "contact-email"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/contact-email}}"
+      - Key: "customer"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/customer}}"
+      - Key: "environment"
+        Value: !Ref TagEnvironment
+      - Key: "team"
+        Value: !Sub "{{resolve:ssm:/account/${InfrastructureName}/tag/team}}"
+Outputs:
+  Ecr:
+    Description: "The ECS repository that was created."
+    Value: !Ref CodeBuildEcr
+    Export:
+      Name: !Sub "${AWS::StackName}-Ecr"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: "General Configuration"
+      Parameters:
+      - InfrastructureName
+    - Label:
+        default: "ECS Repository (ECR) Configuration"
+      Parameters:
+      - EcsRepositoryName
+      - EcrImageCount
+      - EcrImageScanning
+      - EcrImageTagMutability
+    - Label:
+        default: "Tags"
+      Parameters:
+      - TagEnvironment
+    ParameterLabels:
+      InfrastructureName:
+        default: "Infrastructure Name:"
+      EcsRepositoryName:
+        default: "ECS Repository Name:"
+      EcrImageCount:
+        default: "ECR Image Count:"
+      EcrImageScanning:
+        default: "ECR Image Scanning:"
+      EcrImageTagMutability:
+        default: "ECR Tag Mutability:"
+      TagEnvironment:
+        default: "Environment:"

@@ -1,0 +1,7 @@
+version: "3"
+services:
+  codebuild-dind:
+    build: .
+    privileged: true
+    # stdin_open: true
+    # tty: true
