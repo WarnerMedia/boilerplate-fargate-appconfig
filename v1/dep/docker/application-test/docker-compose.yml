@@ -1,6 +1,7 @@
 version: "3"
 services:
-  application-test:
+  codebuild-dind:
     build: .
-    stdin_open: true
-    tty: true
+    privileged: true
+    # stdin_open: true
+    # tty: true

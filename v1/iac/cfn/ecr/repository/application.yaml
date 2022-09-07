@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create an ECS image repository (ECR) - (v1.0.0)"
+Description: "Create an ECS image repository (ECR) for the application - (v1.0.0)"
 Parameters:
   # General Configuration
   InfrastructureName:

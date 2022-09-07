@@ -1,6 +1,7 @@
-version: "3"
+version: "3.3"
 services:
-  nodejs-build:
+  codebuild-dind:
     build: .
-    stdin_open: true
-    tty: true
+    privileged: true
+    # stdin_open: true
+    # tty: true

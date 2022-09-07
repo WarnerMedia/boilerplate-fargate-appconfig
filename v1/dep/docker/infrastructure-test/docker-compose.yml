@@ -1,6 +1,6 @@
 version: "3"
 services:
-  infrastructure-test:
+  codebuild:
     build: .
     stdin_open: true
     tty: true

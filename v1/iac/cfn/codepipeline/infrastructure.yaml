@@ -172,9 +172,13 @@ Parameters:
     Description: "The branch used to build the unstable/DEV environment."
     Default: "dev"
   # ECR Configuration
+  CodeBuildEcsRepositoryName:
+    Type: "String"
+    Description: "The base name of the CodeBuild ECS Repository (e.g. boilerplate/foo)."
+    Default: "boilerplate/codebuild"
   EcsRepositoryName:
     Type: "String"
-    Description: "The base name of the ECS Repository (e.g. boilerplate/foo). The environment will automatically be added to the end."
+    Description: "The base name of the ECS Repository (e.g. boilerplate/foo)."
     Default: "boilerplate/fargate-nodejs"
   EcrNonProdAccount:
     Type: "String"
@@ -677,6 +681,77 @@ Resources:
           - !Ref "AWS::NoValue"
       - Name: "Elastic_Container_Registry"
         Actions:
+        - Name: "CodeBuild_ECR_Primary_Region"
+          ActionTypeId:
+            Category: "Deploy"
+            Owner: "AWS"
+            Provider: "CloudFormation"
+            Version: "1"
+          Configuration:
+            ActionMode: !Ref ActionMode
+            StackName: !Sub "${InfrastructureName}-ecr-codebuild-${ServiceSubdomain}-${TagEnvironment}"
+            Capabilities: !Ref CloudFormationCapabilities
+            TemplatePath:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}iac/cfn/ecr/repository/codebuild.yaml"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            TemplateConfiguration:
+              Fn::Sub:
+              - "IAC_SOURCE_FILES::${Folder}env/cfn/ecr/repository/codebuild.json"
+              - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+            RoleArn: !GetAtt InfrastructureServiceRole.Arn
+            OutputFileName: "out.json"
+            ParameterOverrides: !Sub 
+            - |
+              {
+                "InfrastructureName": "${InfrastructureName}",
+                "EcsRepositoryName": "${CodeBuildEcsRepositoryName}",
+                "TagEnvironment": "${EcrEnvironment}"
+              }
+            - EcrEnvironment: !If [ NonProdBuild, "nonprod", "prod" ]
+          InputArtifacts:
+          - Name: "IAC_SOURCE_FILES"
+          OutputArtifacts:
+          - Name: "CODEBUILD_ERC_OUTPUT_PRIMARY_REGION"
+          RunOrder: 1
+          Region: !Ref "AWS::Region"
+        - !If
+          - SecondRegion
+          - Name: "CodeBuild_ECR_Secondary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-ecr-codebuild-${ServiceSubdomain}-${TagEnvironment}"
+              Capabilities: !Ref CloudFormationCapabilities
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/ecr/repository/codebuild.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/ecr/repository/codebuild.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub
+              - |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "EcsRepositoryName": "${CodeBuildEcsRepositoryName}",
+                  "TagEnvironment": "${EcrEnvironment}"
+                }
+              - EcrEnvironment: !If [ NonProdBuild, "nonprod", "prod" ]
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            OutputArtifacts:
+            - Name: "CODEBUILD_ERC_OUTPUT_SECONDARY_REGION"
+            RunOrder: 1
+            Region: !Ref SecondRegion
+          - !Ref "AWS::NoValue"
         - Name: "ECR_Primary_Region"
           ActionTypeId:
             Category: "Deploy"
@@ -689,11 +764,11 @@ Resources:
             Capabilities: !Ref CloudFormationCapabilities
             TemplatePath:
               Fn::Sub:
-              - "IAC_SOURCE_FILES::${Folder}iac/cfn/ecr/repository.yaml"
+              - "IAC_SOURCE_FILES::${Folder}iac/cfn/ecr/repository/application.yaml"
               - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
             TemplateConfiguration:
               Fn::Sub:
-              - "IAC_SOURCE_FILES::${Folder}env/cfn/ecr/repository.json"
+              - "IAC_SOURCE_FILES::${Folder}env/cfn/ecr/repository/application.json"
               - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
             RoleArn: !GetAtt InfrastructureServiceRole.Arn
             OutputFileName: "out.json"
@@ -712,7 +787,7 @@ Resources:
           - Name: "IAC_SOURCE_FILES"
           OutputArtifacts:
           - Name: "ERC_OUTPUT_PRIMARY_REGION"
-          RunOrder: 1
+          RunOrder: 2
           Region: !Ref "AWS::Region"
         - !If
           - SecondRegion
@@ -728,11 +803,11 @@ Resources:
               Capabilities: !Ref CloudFormationCapabilities
               TemplatePath:
                 Fn::Sub:
-                - "IAC_SOURCE_FILES::${Folder}iac/cfn/ecr/repository.yaml"
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/ecr/repository/application.yaml"
                 - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
               TemplateConfiguration:
                 Fn::Sub:
-                - "IAC_SOURCE_FILES::${Folder}env/cfn/ecr/repository.json"
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/ecr/repository/application.json"
                 - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
               RoleArn: !GetAtt InfrastructureServiceRole.Arn
               OutputFileName: "out.json"
@@ -751,7 +826,7 @@ Resources:
             - Name: "IAC_SOURCE_FILES"
             OutputArtifacts:
             - Name: "ERC_OUTPUT_SECONDARY_REGION"
-            RunOrder: 1
+            RunOrder: 2
             Region: !Ref SecondRegion
           - !Ref "AWS::NoValue"
       - Name: "ECS_Cluster"
@@ -3952,6 +4027,7 @@ Metadata:
     - Label:
         default: "ECS Repository (ECR) Configuration"
       Parameters:
+      - CodeBuildEcsRepositoryName
       - EcsRepositoryName
       - EcrNonProdAccount
       - EcrProdAccount
@@ -4044,6 +4120,8 @@ Metadata:
       UnstableBranch:
         default: "Unstable GitHub Environment Branch:"
       # ECS Configuration
+      CodeBuildEcsRepositoryName:
+        default: "CodeBuild ECS Repository:"
       EcsRepositoryName:
         default: "ECS Repository:"
       EcrNonProdAccount:
