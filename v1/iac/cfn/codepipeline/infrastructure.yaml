@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create the CodePipeline needed to build the base infrastructure for this service - (v1.3.1)"
+Description: "Create the CodePipeline needed to build the base infrastructure for this service - (v1.3.2)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -205,6 +205,10 @@ Parameters:
     Type: "String"
     Description: "The name of the ZIP file for the build source."
     Default: "build.zip"
+  CustomImageSourceFile:
+    Type: "String"
+    Description: "The name of the ZIP file for the custom image build source."
+    Default: "custom-image.zip"
   InfrastructureSourceFile:
     Type: "String"
     Description: "The name of the ZIP file for the infrastructure source."
@@ -3711,7 +3715,7 @@ Resources:
                   "BaseBucketFolder": "${ProjectName}",
                   "CodeBuildProject": "${ProjectName}-custom-image-${BuildSuffix}",
                   "TagEnvironment": "${BuildSuffix}",
-                  "CustomImageSourceFile": "${BuildSourceFile}"
+                  "CustomImageSourceFile": "${CustomImageSourceFile}"
                 }
             InputArtifacts:
             - Name: "IAC_SOURCE_FILES"
@@ -4123,6 +4127,7 @@ Metadata:
       Parameters:
       - ExternalArtifactBucket
       - BuildSourceFile
+      - CustomImageSourceFile
       - InfrastructureSourceFile
       - TestSourceFile
       - ServiceSourceFile
@@ -4222,6 +4227,8 @@ Metadata:
         default: "External Artifact Bucket Name:"
       BuildSourceFile:
         default: "Build Source ZIP File:"
+      CustomImageSourceFile:
+        default: "Custom Image ZIP File:"
       InfrastructureSourceFile:
         default: "Infrastructure Source ZIP File:"
       TestSourceFile:

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create a CodePipeline to build custom images for CodeBuild - (v1.0.0)"
+Description: "Create a CodePipeline to build custom images for CodeBuild - (v1.0.1)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -133,7 +133,7 @@ Resources:
             Provider: "CodeBuild"
             Version: "1"
           Configuration:
-            ProjectName: !Sub "${CodeBuildProject}-custom-image-${BuildSuffix}"
+            ProjectName: !Sub "${CodeBuildProject}"
             PrimarySource: "CUSTOM_IMAGE_SOURCE_FILES"
             EnvironmentVariables: !Sub |
               [
@@ -160,7 +160,7 @@ Resources:
             Provider: "CodeBuild"
             Version: "1"
           Configuration:
-            ProjectName: !Sub "${CodeBuildProject}-custom-image-${BuildSuffix}"
+            ProjectName: !Sub "${CodeBuildProject}"
             PrimarySource: "CUSTOM_IMAGE_SOURCE_FILES"
             EnvironmentVariables: !Sub |
               [
@@ -187,7 +187,7 @@ Resources:
             Provider: "CodeBuild"
             Version: "1"
           Configuration:
-            ProjectName: !Sub "${CodeBuildProject}-custom-image-${BuildSuffix}"
+            ProjectName: !Sub "${CodeBuildProject}"
             PrimarySource: "CUSTOM_IMAGE_SOURCE_FILES"
             EnvironmentVariables: !Sub |
               [
@@ -214,7 +214,7 @@ Resources:
             Provider: "CodeBuild"
             Version: "1"
           Configuration:
-            ProjectName: !Sub "${CodeBuildProject}-custom-image-${BuildSuffix}"
+            ProjectName: !Sub "${CodeBuildProject}"
             PrimarySource: "CUSTOM_IMAGE_SOURCE_FILES"
             EnvironmentVariables: !Sub |
               [
