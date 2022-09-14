@@ -1,0 +1,3 @@
+v1/build/aws/codebuild/buildspec/custom-image/*
+v1/build/aws/codebuild/custom-image/*
+v1/custom-image/*

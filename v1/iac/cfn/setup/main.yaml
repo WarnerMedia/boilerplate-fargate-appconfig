@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create the orchestrator setup CodePipeline - (v1.3.0)"
+Description: "Create the orchestrator setup CodePipeline - (v1.4.0)"
 Parameters:
   InfrastructureName:
     Type: "String"
@@ -171,6 +171,10 @@ Parameters:
     Type: "String"
     Description: "The name of the ZIP file for the build source."
     Default: "build.zip"
+  CustomImageSourceFile:
+    Type: "String"
+    Description: "The name of the ZIP file for the custom image build source."
+    Default: "custom-image.zip"
   InfrastructureSourceFile:
     Type: "String"
     Description: "The name of the ZIP file for the infrastructure source."
@@ -356,6 +360,10 @@ Resources:
           Value: !Sub "${ProjectName}-${UnstableEnvironment}-${BuildSuffix}"
         - Name: "BUILD_ZIP_FILE"
           Value: !Ref BuildSourceFile
+        - Name: "CUSTOM_IMAGE_ZIP_FILE"
+          Value: !Ref CustomImageSourceFile
+        - Name: "CUSTOM_IMAGE_CODEPIPELINE"
+          Value: !Sub "${ProjectName}-custom-image-${BuildSuffix}"
         - Name: "DEPLOY_SCRIPT_PATH"
           Value: !Ref CodeBuildDeployScriptPath
         - Name: "IAC_CODEPIPELINE"
@@ -737,6 +745,7 @@ Metadata:
       Parameters:
       - ExternalArtifactBucket
       - BuildSourceFile
+      - CustomImageSourceFile
       - InfrastructureSourceFile
       - TestSourceFile
       - ServiceSourceFile
@@ -830,6 +839,8 @@ Metadata:
         default: "External Artifact Bucket Name:"
       BuildSourceFile:
         default: "Build Source ZIP File:"
+      CustomImageSourceFile:
+        default: "Custom Image ZIP File:"
       InfrastructureSourceFile:
         default: "Infrastructure Source ZIP File:"
       TestSourceFile:

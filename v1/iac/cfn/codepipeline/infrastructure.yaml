@@ -1109,6 +1109,50 @@ Resources:
             Region: !Ref "AWS::Region"
           - !Ref "AWS::NoValue"
         - !If
+          - NonProdBuild
+          - Name: "Custom_Image_CodeBuild_Primary_Region"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-${BuildSuffix}-codebuild-${ServiceSubdomain}-custom-image-${TagEnvironment}"
+              Capabilities: !Ref CloudFormationCapabilities
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codebuild/custom-image.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codebuild/custom-image/main.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "ProjectName": "${ProjectName}-custom-image-${BuildSuffix}",
+                  "AppBaseFolder": "${AppBaseFolder}",
+                  "EcrProdAccount": "${EcrProdAccount}",
+                  "EcsRepositoryName": { "Fn::GetParam" : [ "CODEBUILD_ERC_OUTPUT_PRIMARY_REGION", "out.json", "Ecr" ] },
+                  "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
+                  "CodeBuildGitHubOAuthTokenName": "${GitHubOAuthTokenName}",
+                  "SecondRegion": "${SecondRegion}",
+                  "DockerHubUsernameKey": "${DockerHubUsernameKey}",
+                  "DockerHubTokenKey": "${DockerHubTokenKey}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+            - Name: "CODEBUILD_ERC_OUTPUT_PRIMARY_REGION"
+            OutputArtifacts:
+            - Name: "CUSTOM_IMAGE_CODEBUILD_OUTPUT_PRIMARY_REGION"
+            RunOrder: 3
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
           - EnableCustomBuild
           - Name: "Custom_CodeBuild_Primary_Region"
             ActionTypeId:
@@ -3638,6 +3682,49 @@ Resources:
             Region: !Ref "AWS::Region"
           - !Ref "AWS::NoValue"
         - !If
+          - NonProdBuild
+          - Name: "Custom_Image_CodePipeline"
+            ActionTypeId:
+              Category: "Deploy"
+              Owner: "AWS"
+              Provider: "CloudFormation"
+              Version: "1"
+            Configuration:
+              ActionMode: !Ref ActionMode
+              StackName: !Sub "${InfrastructureName}-codepipeline-${ServiceSubdomain}-custom-image-${BuildSuffix}"
+              Capabilities: !Ref CloudFormationCapabilities
+              TemplatePath:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}iac/cfn/codepipeline/custom-image.yaml"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              TemplateConfiguration:
+                Fn::Sub:
+                - "IAC_SOURCE_FILES::${Folder}env/cfn/codepipeline/custom-image/main.json"
+                - Folder: !If [ AppBaseFolder, !Sub "${AppBaseFolder}/", "" ]
+              RoleArn: !GetAtt InfrastructureServiceRole.Arn
+              OutputFileName: "out.json"
+              ParameterOverrides: !Sub |
+                {
+                  "InfrastructureName": "${InfrastructureName}",
+                  "BaseProjectName": "${ProjectName}",
+                  "ProjectName": "${ProjectName}-custom-image",
+                  "BaseBucketFolder": "${ProjectName}",
+                  "CodeBuildProject": "${ProjectName}-custom-image-${BuildSuffix}",
+                  "EcrName": { "Fn::GetParam" : [ "CODEBUILD_ERC_OUTPUT_PRIMARY_REGION", "out.json", "Ecr" ] },
+                  "EcrImageTag": "${InitialEnvironment}",
+                  "TagEnvironment": "${BuildSuffix}",
+                  "CustomImageSourceFile": "${BuildSourceFile}"
+                }
+            InputArtifacts:
+            - Name: "IAC_SOURCE_FILES"
+            - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
+            - Name: "CODEBUILD_ERC_OUTPUT_PRIMARY_REGION"
+            OutputArtifacts:
+            - Name: "CODEPIPELINE_OUTPUT_CUSTOM_IMAGE_BUILD"
+            RunOrder: 3
+            Region: !Ref "AWS::Region"
+          - !Ref "AWS::NoValue"
+        - !If
           - UnstableEnvironment
           - Name: !Sub "Deploy_CodePipeline_${UnstableEnvironment}_Primary_Region"
             ActionTypeId:
@@ -3687,7 +3774,7 @@ Resources:
             - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
             OutputArtifacts:
             - Name: !Sub "CODEPIPELINE_OUTPUT_${UnstableEnvironment}_PRIMARY_REGION"
-            RunOrder: 3
+            RunOrder: 4
             Region: !Ref "AWS::Region"
           - !Ref "AWS::NoValue"
         - !If
@@ -3739,7 +3826,7 @@ Resources:
             - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
             OutputArtifacts:
             - Name: !Sub "CODEPIPELINE_OUTPUT_${InitialEnvironment}_PRIMARY_REGION"
-            RunOrder: 4
+            RunOrder: 5
             Region: !Ref "AWS::Region"
           - !Ref "AWS::NoValue"
         - !If
@@ -3792,7 +3879,7 @@ Resources:
             - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
             OutputArtifacts:
             - Name: !Sub "CODEPIPELINE_OUTPUT_${QaEnvironment}_PRIMARY_REGION"
-            RunOrder: 5
+            RunOrder: 6
             Region: !Ref "AWS::Region"
           - !Ref "AWS::NoValue"
         - !If
@@ -3845,7 +3932,7 @@ Resources:
             - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
             OutputArtifacts:
             - Name: !Sub "CODEPIPELINE_OUTPUT_${StageEnvironment}_PRIMARY_REGION"
-            RunOrder: 6
+            RunOrder: 7
             Region: !Ref "AWS::Region"
           - !Ref "AWS::NoValue"
         - !If
@@ -3898,7 +3985,7 @@ Resources:
             - Name: "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION"
             OutputArtifacts:
             - Name: !Sub "CODEPIPELINE_OUTPUT_${ProdEnvironment}_PRIMARY_REGION"
-            RunOrder: 7
+            RunOrder: 8
             Region: !Ref "AWS::Region"
           - !Ref "AWS::NoValue"
       - !If

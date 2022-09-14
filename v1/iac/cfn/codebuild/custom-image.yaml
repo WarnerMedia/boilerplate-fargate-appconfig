@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create the CodeBuild needed to build this service - (v1.1.0)"
+Description: "Create the CodeBuild needed to build custom CodeBuild images - (v1.0.0)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -10,6 +10,10 @@ Parameters:
     Type: "String"
     Description: "The base repository folder for the application."
     Default: "v1"
+  CustomImagePath:
+    Type: "String"
+    Description: "The path for the custom image Dockerfile."
+    Default: "dep/docker/drupal"
   EcrProdAccount:
     Type: "String"
     Description: "The Account ID for the non-prod account."
@@ -57,14 +61,7 @@ Parameters:
     Type: "String"
     Description: "Which Docker version do you want to use? For other images/runtimes, try to create a project through the interface."
     AllowedValues:
-    - "aws/codebuild/amazonlinux2-x86_64-standard:1.0"
-    - "aws/codebuild/amazonlinux2-x86_64-standard:2.0"
-    - "aws/codebuild/amazonlinux2-x86_64-standard:3.0"
     - "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
-    - "aws/codebuild/standard:1.0"
-    - "aws/codebuild/standard:2.0"
-    - "aws/codebuild/standard:3.0"
-    - "aws/codebuild/standard:4.0"
     Default: "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
   CodeBuildCustomDockerImage:
     Type: "String"
@@ -73,31 +70,11 @@ Parameters:
   CodeBuildTimeoutInMinutes:
     Type: "Number"
     Default: 10
-  CodeBuildUnstableBranch:
-    Type: "String"
-    Description: "The branch name for the unstable (stub) environment."
-    Default: "NONE"
   # ECR Configuration
   EcsRepositoryName:
     Type: "String"
     Description: "The base name of the ECS Repository (e.g. boilerplate/foo). The environment will automatically be added to the end."
     Default: "boilerplate/fargate-nodejs"
-  # Approval Configuration
-  AutomaticReject:
-    Type: "String"
-    Description: "Should we automatically reject a pending approval for the initial deployment CodePipeline?"
-    AllowedValues:
-    - "Yes"
-    - "No"
-    Default: "No"
-  PrereleaseEnvironment:
-    Type: "String"
-    Description: "Which environment should get tagged for pre-release?"
-    Default: "qa"
-  ReleaseEnvironment:
-    Type: "String"
-    Description: "Which environment should get tagged for pre-release?"
-    Default: "prod"
   # Tags
   TagEnvironment:
     Type: "String"
@@ -122,8 +99,6 @@ Resources:
       Environment:
         ComputeType: !Ref CodeBuildComputeType
         EnvironmentVariables:
-        - Name: "AUTOMATIC_REJECT"
-          Value: !Ref AutomaticReject
         - Name: "APP_BASE_FOLDER"
           Value: !Ref AppBaseFolder
         - Name: "AWS_ACCOUNT_ID"
@@ -132,6 +107,8 @@ Resources:
           Value: !Ref EcrProdAccount
         - Name: "AWS_SECOND_REGION"
           Value: !Ref SecondRegion
+        - Name: "CUSTOM_IMAGE_PATH"
+          Value: !Ref CustomImagePath
         - Name: "DOCKERHUB_USERNAME_KEY"
           Value: !Ref DockerHubUsernameKey
         - Name: "DOCKERHUB_TOKEN_KEY"
@@ -140,14 +117,8 @@ Resources:
           Value: !Ref CodeBuildGitHubOAuthTokenName
         - Name: "IMAGE_REPO_NAME"
           Value: !Ref EcsRepositoryName
-        - Name: "PRERELEASE_ENV"
-          Value: !Ref PrereleaseEnvironment
-        - Name: "RELEASE_ENV"
-          Value: !Ref ReleaseEnvironment
         - Name: "S3_ARTIFACT_BUCKET"
           Value: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/artifact/name}}"
-        - Name: "UNSTABLE_BRANCH"
-          Value: !Ref CodeBuildUnstableBranch
         # TODO: Add image logic for ECR images: "account-ID.dkr.ecr.region-ID.amazonaws.com/your-Amazon-ECR-repo-name:tag"
         Image: !If [ CodeBuildCustomDockerImage, !Ref CodeBuildCustomDockerImage, !Ref CodeBuildDockerImage ]
         PrivilegedMode: true
@@ -197,6 +168,7 @@ Metadata:
         default: "CodePipeline Configuration"
       Parameters:
       - AppBaseFolder
+      - CustomImagePath
       - EcrProdAccount
       - ProjectName
       - SecondRegion
@@ -214,15 +186,8 @@ Metadata:
       - CodeBuildCustomDockerImage
       - CodeBuildDockerImage
       - CodeBuildTimeoutInMinutes
-      - CodeBuildUnstableBranch
       - DockerHubUsernameKey
       - DockerHubTokenKey
-    - Label:
-        default: "Approval Configuration"
-      Parameters:
-      - AutomaticReject
-      - PrereleaseEnvironment
-      - ReleaseEnvironment
     - Label:
         default: "Tags"
       Parameters:
@@ -234,6 +199,8 @@ Metadata:
       # CodePipeline Configuration
       AppBaseFolder:
         default: "CodePipeline Application Base Folder:"
+      CustomImagePath:
+        default: "Custom Image Path:"
       EcrProdAccount:
         default: "ECR Production Account:"
       ProjectName:
@@ -258,19 +225,10 @@ Metadata:
         default: "CodeBuild Docker Image:"
       CodeBuildTimeoutInMinutes:
         default: "CodeBuild Timeout (in Minutes):"
-      CodeBuildUnstableBranch:
-        default: "CodeBuild Unstable Environment Branch:"
       DockerHubUsernameKey:
         default: "DockerHub Username:"
       DockerHubTokenKey:
         default: "DockerHub Token:"
-      # Approval Configuration
-      AutomaticReject:
-        default: "Automatically Reject:"
-      PrereleaseEnvironment:
-        default: "Pre-Release Environment:"
-      ReleaseEnvironment:
-        default: "Pre-Release Environment:"
       # Tags
       TagEnvironment:
         default: "Environment:"
