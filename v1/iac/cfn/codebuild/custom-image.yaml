@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create the CodeBuild needed to build custom CodeBuild images - (v1.0.0)"
+Description: "Create the CodeBuild needed to build custom CodeBuild images - (v1.0.1)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -69,7 +69,7 @@ Parameters:
     Default: ""
   CodeBuildTimeoutInMinutes:
     Type: "Number"
-    Default: 10
+    Default: 30
   # ECR Configuration
   EcsRepositoryName:
     Type: "String"
