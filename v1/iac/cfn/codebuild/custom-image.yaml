@@ -84,7 +84,7 @@ Parameters:
     Default: "build"
 Conditions:
   AppBaseFolder: !Not [ !Equals [ !Ref AppBaseFolder, "" ] ]
-  CodeBuildCustomDockerImage: !Not [ !Equals [ !Ref AppBaseFolder, "" ] ]
+  CodeBuildCustomDockerImage: !Not [ !Equals [ !Ref CodeBuildCustomDockerImage, "" ] ]
 Resources:
   CodeBuildProject:
     Type: "AWS::CodeBuild::Project"
