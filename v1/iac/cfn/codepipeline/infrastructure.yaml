@@ -3710,8 +3710,6 @@ Resources:
                   "ProjectName": "${ProjectName}-custom-image",
                   "BaseBucketFolder": "${ProjectName}",
                   "CodeBuildProject": "${ProjectName}-custom-image-${BuildSuffix}",
-                  "EcrName": { "Fn::GetParam" : [ "CODEBUILD_ERC_OUTPUT_PRIMARY_REGION", "out.json", "Ecr" ] },
-                  "EcrImageTag": "${InitialEnvironment}",
                   "TagEnvironment": "${BuildSuffix}",
                   "CustomImageSourceFile": "${BuildSourceFile}"
                 }
