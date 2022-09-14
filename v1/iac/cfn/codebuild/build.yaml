@@ -149,7 +149,7 @@ Resources:
         - Name: "UNSTABLE_BRANCH"
           Value: !Ref CodeBuildUnstableBranch
         # TODO: Add image logic for ECR images: "account-ID.dkr.ecr.region-ID.amazonaws.com/your-Amazon-ECR-repo-name:tag"
-        Image: !If [ CodeBuildCustomDockerImage, !Ref CodeBuildCustomDockerImage, !Ref CodeBuildDockerImage ]
+        Image: !If [ CodeBuildCustomDockerImage, !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${CodeBuildCustomDockerImage}", !Ref CodeBuildDockerImage ]
         PrivilegedMode: true
         Type: "LINUX_CONTAINER"
       TimeoutInMinutes: !Ref CodeBuildTimeoutInMinutes
