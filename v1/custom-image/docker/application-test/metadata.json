@@ -1,0 +1,5 @@
+{
+    "name": "application-test-custom-image-build",
+    "version": "1.0.0",
+    "description": "Custom Docker image for application testing CodeBuilds."
+  }

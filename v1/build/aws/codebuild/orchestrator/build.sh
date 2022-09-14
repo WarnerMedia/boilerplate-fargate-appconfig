@@ -14,27 +14,30 @@ BASE_LIST_PATH="env/cfn/codebuild/orchestrator/"
 
 #Get the soure file base (sans extension)
 BUILD_FILE_BASE=$(echo "$BUILD_ZIP_FILE" | rev | cut -d. -f2- | rev)
+CUSTOM_IMAGE_FILE_BASE=$(echo "$CUSTOM_IMAGE_ZIP_FILE" | rev | cut -d. -f2- | rev)
 ENV_FILE_BASE=$(echo "$ENV_ZIP_FILE" | rev | cut -d. -f2- | rev)
 IAC_FILE_BASE=$(echo "$IAC_ZIP_FILE" | rev | cut -d. -f2- | rev)
 SERVICE_FILE_BASE=$(echo "$SERVICE_ZIP_FILE" | rev | cut -d. -f2- | rev)
-TEST_FILE_BASE=$(echo "$TEST_ZIP_FILE" | rev | cut -d. -f2- | rev)
 SETUP_FILE_BASE=$(echo "$SETUP_ZIP_FILE" | rev | cut -d. -f2- | rev)
+TEST_FILE_BASE=$(echo "$TEST_ZIP_FILE" | rev | cut -d. -f2- | rev)
 
 #Lists of files to include.
 BUILD_INCLUDE_LIST="${BASE_LIST_PATH}${BUILD_FILE_BASE}_include.list"
+CUSTOM_IMAGE_INCLUDE_LIST="${BASE_LIST_PATH}${CUSTOM_IMAGE_FILE_BASE}_include.list"
 ENV_INCLUDE_LIST="${BASE_LIST_PATH}${ENV_FILE_BASE}_include.list"
 IAC_INCLUDE_LIST="${BASE_LIST_PATH}${IAC_FILE_BASE}_include.list"
 SERVICE_INCLUDE_LIST="${BASE_LIST_PATH}${SERVICE_FILE_BASE}_include.list"
-TEST_INCLUDE_LIST="${BASE_LIST_PATH}${TEST_FILE_BASE}_include.list"
 SETUP_INCLUDE_LIST="${BASE_LIST_PATH}${SETUP_FILE_BASE}_include.list"
+TEST_INCLUDE_LIST="${BASE_LIST_PATH}${TEST_FILE_BASE}_include.list"
 
 #Lists of files to exclude.
 BUILD_EXCLUDE_LIST="${BASE_LIST_PATH}${BUILD_FILE_BASE}_exclude.list"
+CUSTOM_IMAGE_EXCLUDE_LIST="${BASE_LIST_PATH}${CUSTOM_IMAGE_FILE_BASE}_exclude.list"
 ENV_EXCLUDE_LIST="${BASE_LIST_PATH}${ENV_FILE_BASE}_exclude.list"
 IAC_EXCLUDE_LIST="${BASE_LIST_PATH}${IAC_FILE_BASE}_exclude.list"
 SERVICE_EXCLUDE_LIST="${BASE_LIST_PATH}${SERVICE_FILE_BASE}_exclude.list"
-TEST_EXCLUDE_LIST="${BASE_LIST_PATH}${TEST_FILE_BASE}_exclude.list"
 SETUP_EXCLUDE_LIST="${BASE_LIST_PATH}${SETUP_FILE_BASE}_exclude.list"
+TEST_EXCLUDE_LIST="${BASE_LIST_PATH}${TEST_FILE_BASE}_exclude.list"
 
 #------------------------------------------------------------------------
 # END: Set some default variables and files
@@ -215,6 +218,9 @@ push_regular_environment () {
   #Create IaC ZIP file.
   create_compare_zip  "$APP_BASE_FOLDER" "$OUTPUT_FILE_FOLDER" "$ZIP_FOLDER" "$IAC_ZIP_FILE" "$IAC_EXCLUDE_LIST" "$IAC_INCLUDE_LIST"
 
+  #Create custom image ZIP file.
+  create_compare_zip  "$APP_BASE_FOLDER" "$OUTPUT_FILE_FOLDER" "$ZIP_FOLDER" "$CUSTOM_IMAGE_ZIP_FILE" "$CUSTOM_IMAGE_EXCLUDE_LIST" "$CUSTOM_IMAGE_INCLUDE_LIST"
+
   #Create service ZIP file.
   create_compare_zip  "$APP_BASE_FOLDER" "$OUTPUT_FILE_FOLDER" "$ZIP_FOLDER" "$SERVICE_ZIP_FILE" "$SERVICE_EXCLUDE_LIST" "$SERVICE_INCLUDE_LIST"
 
@@ -234,6 +240,9 @@ push_regular_environment () {
 
   #Check test ZIP file.
   compare_zip_file "$S3_BUCKET" "$S3_FOLDER" "$OUTPUT_FILE_FOLDER" "$COMPARE_FOLDER" "$ZIP_FOLDER" "$TEST_ZIP_FILE" "NONE" "$AWS_REGION" "true"
+
+  #Check custom image ZIP file.
+  compare_zip_file "$S3_BUCKET" "$S3_FOLDER" "$OUTPUT_FILE_FOLDER" "$COMPARE_FOLDER" "$ZIP_FOLDER" "$CUSTOM_IMAGE_ZIP_FILE" "$CUSTOM_IMAGE_CODEPIPELINE" "$AWS_REGION" "true"
 
   #Check IaC ZIP file.
   compare_zip_file "$S3_BUCKET" "$S3_FOLDER" "$OUTPUT_FILE_FOLDER" "$COMPARE_FOLDER" "$ZIP_FOLDER" "$IAC_ZIP_FILE" "$IAC_CODEPIPELINE" "$AWS_REGION" "true"

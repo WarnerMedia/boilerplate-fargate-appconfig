@@ -1,0 +1,5 @@
+{
+    "name": "orchestrator-custom-image-build",
+    "version": "1.0.0",
+    "description": "Custom Docker image for orchestrator CodeBuilds."
+  }

@@ -2,8 +2,8 @@ ARG ALPINE_VERSION=3.16
 ARG PYTHON_VERSION=3.10.6
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} as builder
 
-RUN apk update \
-    && apk upgrade \
+RUN apk update --no-cache \
+    && apk upgrade --no-cache \
     && apk add --no-cache \
     bind-tools \
     curl \
@@ -31,12 +31,7 @@ RUN sed -i'' 's/PyInstaller.*/PyInstaller==5.2/g' requirements-build.txt \
     && . venv/bin/activate \
     && scripts/installers/make-exe \
     && unzip -q dist/awscli-exe.zip \
-    && aws/install --bin-dir /usr/local/bin \
-    && /usr/local/bin/aws --version
-
-# reduce image size: remove autocomplete and examples
-# RUN rm -rf /usr/local/aws-cli/v2/current/dist/aws_completer /usr/local/aws-cli/v2/current/dist/awscli/data/ac.index /usr/local/aws-cli/v2/current/dist/awscli/examples
-# RUN find /usr/local/aws-cli/v2/current/dist/awscli/botocore/data -name examples-1.json -delete
+    && aws/install --bin-dir /usr/local/bin
 
 RUN echo "alpine version: $(cat /etc/alpine-release)" \
     && aws --version \
