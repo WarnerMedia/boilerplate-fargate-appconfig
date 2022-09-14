@@ -104,9 +104,9 @@ touch /tmp/build
 
 #Change the directory to the application directory...
 if [ -z "$APP_BASE_FOLDER" ]; then
-  cd "$CODEBUILD_SRC_DIR/$CUSTOM_IMAGE_PATH" || exit 1
+  cd "$CODEBUILD_SRC_DIR/$CUSTOM_IMAGE_PATH/$CUSTOM_IMAGE_TAG" || exit 1
 else
-  cd "$CODEBUILD_SRC_DIR/$APP_BASE_FOLDER/$CUSTOM_IMAGE_PATH" || exit 1
+  cd "$CODEBUILD_SRC_DIR/$APP_BASE_FOLDER/$CUSTOM_IMAGE_PATH/$CUSTOM_IMAGE_TAG" || exit 1
 fi
 
 if [ "$RUN_BUILD" = "true" ]; then
