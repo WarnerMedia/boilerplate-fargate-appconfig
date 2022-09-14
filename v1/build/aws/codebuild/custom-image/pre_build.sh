@@ -287,9 +287,9 @@ check_cmd_exists "jq"
 
 #Change the directory to the application directory...
 if [ -z "$APP_BASE_FOLDER" ]; then
-  cd "$CODEBUILD_SRC_DIR/$CUSTOM_IMAGE_PATH" || exit 1
+  cd "$CODEBUILD_SRC_DIR/$CUSTOM_IMAGE_PATH/$CUSTOM_IMAGE_TAG" || exit 1
 else
-  cd "$CODEBUILD_SRC_DIR/$APP_BASE_FOLDER/$CUSTOM_IMAGE_PATH" || exit 1
+  cd "$CODEBUILD_SRC_DIR/$APP_BASE_FOLDER/$CUSTOM_IMAGE_PATH/$CUSTOM_IMAGE_TAG" || exit 1
 fi
 
 echo "Extract some METADATA from the \"$METADATA_FILE\" file..."
@@ -365,7 +365,7 @@ update_version
 #Update the version in GitHub if we had to advance the version...
 # if [ "$METADATA_FILE_UPDATED" = "true" ]; then
 #   #Update the patch version...
-#   update_metadata_file "$GITHUB_ORGANIZATION" "$GITHUB_REPOSITORY" "$APP_BASE_FOLDER" "$CUSTOM_IMAGE_PATH" "$METADATA_FILE" "$GITHUB_TOKEN" "$GIT_BRANCH" "Automatic patch version update to: $VERSION"
+#   update_metadata_file "$GITHUB_ORGANIZATION" "$GITHUB_REPOSITORY" "$APP_BASE_FOLDER" "$CUSTOM_IMAGE_PATH/$/$CUSTOM_IMAGE_TAG" "$METADATA_FILE" "$GITHUB_TOKEN" "$GIT_BRANCH" "Automatic patch version update to: $VERSION"
 # fi
 
 echo "Setting some build tags..."

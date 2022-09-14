@@ -13,7 +13,7 @@ Parameters:
   CustomImagePath:
     Type: "String"
     Description: "The path for the custom image Dockerfile."
-    Default: "dep/docker/drupal"
+    Default: "custom-image/docker"
   EcrProdAccount:
     Type: "String"
     Description: "The Account ID for the non-prod account."
