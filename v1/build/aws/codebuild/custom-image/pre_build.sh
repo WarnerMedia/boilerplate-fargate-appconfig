@@ -343,7 +343,28 @@ check_variable "$GITHUB_REPOSITORY" "GitHub repository"
 DATETIME_ET=$(TZ="America/New_York" date +"%Y%m%d%H%M%S")
 
 #Regional docker URL...
-DOCKER_URL=$(build_docker_url "$AWS_ACCOUNT_ID" "$AWS_REGION" "$IMAGE_REPO_NAME")
+FIRST_REGION_DOCKER_URL=$(build_docker_url "$AWS_ACCOUNT_ID" "$AWS_REGION" "$IMAGE_REPO_NAME")
+
+if [ "$AWS_SECOND_REGION" = "NONE" ]; then
+  echo "The second region was not set, so not building the docker URL for the second region."
+  SECOND_REGION_DOCKER_URL="NONE"
+else
+  SECOND_REGION_DOCKER_URL=$(build_docker_url "$AWS_ACCOUNT_ID" "$AWS_SECOND_REGION" "$IMAGE_REPO_NAME")
+fi
+
+#Production docker URL...
+if [ -z "$AWS_ECR_PROD_ACCOUNT_ID" ]; then
+  echo "No ECR production Account ID was passed in, so not building the docker URL(s) for production."
+  PROD_FIRST_REGION_DOCKER_URL="NONE"
+else
+  PROD_FIRST_REGION_DOCKER_URL=$(build_docker_url "$AWS_ECR_PROD_ACCOUNT_ID" "$AWS_REGION" "$IMAGE_REPO_NAME")
+  if [ "$AWS_SECOND_REGION" = "NONE" ]; then
+    echo "The second region was not set, so not building the production docker URL for the second region."
+    PROD_SECOND_REGION_DOCKER_URL="NONE"
+  else
+    PROD_SECOND_REGION_DOCKER_URL=$(build_docker_url "$AWS_ECR_PROD_ACCOUNT_ID" "$AWS_SECOND_REGION" "$IMAGE_REPO_NAME")
+  fi
+fi
 
 #------------------------------------------------------------------------
 # END: Set a number of variables
@@ -394,7 +415,10 @@ echo "Current CodePipeline name is: $CURRENT_PIPELINE"
 echo "Full git revision is: $GIT_FULL_REVISION"
 echo "Short git revision is: $GIT_SHORT_REVISION"
 echo "Current time in the Eastern Time Zone is: $DATETIME_ET"
-echo "Docker URL: $DOCKER_URL"
+echo "First region docker URL: $FIRST_REGION_DOCKER_URL"
+echo "Second region docker URL: $SECOND_REGION_DOCKER_URL"
+echo "Production first region docker URL: $PROD_FIRST_REGION_DOCKER_URL"
+echo "Production second region docker URL: $PROD_SECOND_REGION_DOCKER_URL"
 
 #------------------------------------------------------------------------
 # END: Output a number of variables
@@ -409,7 +433,7 @@ export_variable "BUILD_ID_TAG"
 export_variable "CURRENT_PIPELINE"
 export_variable "DATETIME_ET"
 export_variable "DEFAULT_IMAGE_TAG"
-export_variable "DOCKER_URL"
+export_variable "FIRST_REGION_DOCKER_URL"
 export_variable "GIT_BRANCH"
 export_variable "GIT_FULL_REVISION"
 export_variable "GIT_REVISION_TAG"
@@ -417,7 +441,10 @@ export_variable "GIT_SHORT_REVISION"
 export_variable "GITHUB_ORGANIZATION"
 export_variable "GITHUB_REPOSITORY"
 export_variable "NAME"
+export_variable "PROD_FIRST_REGION_DOCKER_URL"
+export_variable "PROD_SECOND_REGION_DOCKER_URL"
 export_variable "RUN_BUILD"
+export_variable "SECOND_REGION_DOCKER_URL"
 export_variable "VERSION"
 export_variable "VERSION_TAG"
 
