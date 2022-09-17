@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create an ECS image repository (ECR) for CodeBuild images - (v1.0.1)"
+Description: "Create an ECS image repository (ECR) for CodeBuild images - (v1.0.2)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -93,22 +93,22 @@ Resources:
           - "ecr:*"
         - !If
           - Production
-          - - Sid: "PushOnly"
-              Effect: "Allow"
-              Principal:
-                AWS:
-                - !Sub "arn:aws:iam::${EcrExternalAccount}:root"
-              Action:
-              - "ecr:BatchGetImage"
-              - "ecr:BatchCheckLayerAvailability"
-              - "ecr:CompleteLayerUpload"
-              - "ecr:DescribeImages"
-              - "ecr:GetAuthorizationToken"
-              - "ecr:GetDownloadUrlForLayer"
-              - "ecr:InitiateLayerUpload"
-              - "ecr:PutImage"
-              - "ecr:PutImageScanningConfiguration"
-              - "ecr:UploadLayerPart"
+          - Sid: "PushOnly"
+            Effect: "Allow"
+            Principal:
+              AWS:
+              - !Sub "arn:aws:iam::${EcrExternalAccount}:root"
+            Action:
+            - "ecr:BatchGetImage"
+            - "ecr:BatchCheckLayerAvailability"
+            - "ecr:CompleteLayerUpload"
+            - "ecr:DescribeImages"
+            - "ecr:GetAuthorizationToken"
+            - "ecr:GetDownloadUrlForLayer"
+            - "ecr:InitiateLayerUpload"
+            - "ecr:PutImage"
+            - "ecr:PutImageScanningConfiguration"
+            - "ecr:UploadLayerPart"
           - !Ref "AWS::NoValue"
       Tags:
       - Key: "Name"
