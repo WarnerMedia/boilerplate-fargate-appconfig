@@ -43,15 +43,13 @@ Parameters:
     Type: "String"
     Description: "Which Docker version do you want to use? For other images/runtimes, try to create a project through the interface."
     AllowedValues:
-    - "aws/codebuild/amazonlinux2-x86_64-standard:1.0"
-    - "aws/codebuild/amazonlinux2-x86_64-standard:2.0"
     - "aws/codebuild/amazonlinux2-x86_64-standard:3.0"
     - "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
-    - "aws/codebuild/standard:1.0"
-    - "aws/codebuild/standard:2.0"
-    - "aws/codebuild/standard:3.0"
-    - "aws/codebuild/standard:4.0"
     Default: "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
+  CodeBuildCustomDockerImage:
+    Type: "String"
+    Description: "Custom ECR docker image for CodeBuild."
+    Default: ""
   CodeBuildTimeoutInMinutes:
     Type: "Number"
     Default: 10
@@ -72,6 +70,7 @@ Parameters:
     Default: "nonprod"
 Conditions:
   AppBaseFolder: !Not [ !Equals [ !Ref AppBaseFolder, "" ] ]
+  CodeBuildCustomDockerImage: !Not [ !Equals [ !Ref CodeBuildCustomDockerImage, "" ] ]
 Resources:
   CodeBuildProject:
     Type: "AWS::CodeBuild::Project"
@@ -95,7 +94,7 @@ Resources:
           Value: !Ref EcsRepositoryName
         - Name: "TEST_OUTPUT_PATH"
           Value: !Ref CodeBuildTestOutputPath
-        Image: !Ref CodeBuildDockerImage
+        Image: !If [ CodeBuildCustomDockerImage, !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${CodeBuildCustomDockerImage}", !Ref CodeBuildDockerImage ]
         PrivilegedMode: true
         Type: "LINUX_CONTAINER"
       TimeoutInMinutes: !Ref CodeBuildTimeoutInMinutes
@@ -155,6 +154,7 @@ Metadata:
       - CodeBuildSpecPath
       - CodeBuildTestOutputPath
       - CodeBuildComputeType
+      - CodeBuildCustomDockerImage
       - CodeBuildDockerImage
       - CodeBuildTimeoutInMinutes
       - SecuritySecret
@@ -182,6 +182,8 @@ Metadata:
         default: "CodeBuild Output Path:"
       CodeBuildComputeType:
         default: "CodeBuild Compute Type:"
+      CodeBuildCustomDockerImage:
+        default: "CodeBuild Custom Docker Image:"
       CodeBuildDockerImage:
         default: "CodeBuild Docker Image:"
       CodeBuildTimeoutInMinutes:
