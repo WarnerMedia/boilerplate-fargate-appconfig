@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create the CodePipeline needed to build the base infrastructure for this service - (v1.3.2)"
+Description: "Create the CodePipeline needed to build the base infrastructure for this service - (v1.3.3)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -710,6 +710,7 @@ Resources:
               {
                 "InfrastructureName": "${InfrastructureName}",
                 "EcsRepositoryName": "${CodeBuildEcsRepositoryName}",
+                "EcrExternalAccount": "${EcrNonProdAccount}",
                 "TagEnvironment": "${EcrEnvironment}"
               }
             - EcrEnvironment: !If [ NonProdBuild, "nonprod", "prod" ]
@@ -746,6 +747,7 @@ Resources:
                 {
                   "InfrastructureName": "${InfrastructureName}",
                   "EcsRepositoryName": "${CodeBuildEcsRepositoryName}",
+                  "EcrExternalAccount": "${EcrNonProdAccount}",
                   "TagEnvironment": "${EcrEnvironment}"
                 }
               - EcrEnvironment: !If [ NonProdBuild, "nonprod", "prod" ]
