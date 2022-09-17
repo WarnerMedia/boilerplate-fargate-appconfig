@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Create an ECS image repository (ECR) for CodeBuild images - (v1.0.0)"
+Description: "Create an ECS image repository (ECR) for CodeBuild images - (v1.0.1)"
 Parameters:
   # General Configuration
   InfrastructureName:
@@ -11,6 +11,10 @@ Parameters:
     Type: "String"
     Description: "The base name of the ECS Repository (e.g. boilerplate/foo)."
     Default: "boilerplate/codebuild"
+  EcrExternalAccount:
+    Type: "String"
+    Description: "An Account ID needed for the production ECS repository in order to allow pushes from the non-prod CodePipelines."
+    Default: "222221111111"
   EcrImageCount:
     Type: "String"
     Description: "The number of ECR images to keep."
@@ -41,30 +45,15 @@ Parameters:
     - "prod"
     - "build"
     Default: "int"
+Conditions:
+  Production: !Equals [!Ref TagEnvironment, "prod"]
+  NonProduction: !Not
+  - !Condition Production
 Resources:
   CodeBuildEcr:
     Type: "AWS::ECR::Repository"
     Properties:
       RepositoryName: !Ref EcsRepositoryName
-      # Example policies: https://docs.aws.amazon.com/codebuild/latest/userguide/sample-ecr.html
-      RepositoryPolicyText:
-        {
-          "Version":"2012-10-17",
-          "Statement":[
-              {
-                "Sid":"CodeBuildAccessPrincipal",
-                "Effect":"Allow",
-                "Principal":{
-                    "Service":"codebuild.amazonaws.com"
-                },
-                "Action":[
-                    "ecr:GetDownloadUrlForLayer",
-                    "ecr:BatchGetImage",
-                    "ecr:BatchCheckLayerAvailability"
-                ]
-              }
-          ]
-        }
       ImageScanningConfiguration:
         ScanOnPush: !Ref EcrImageScanning
       ImageTagMutability: !Ref EcrImageTagMutability
@@ -83,6 +72,44 @@ Resources:
               "action": { "type": "expire" }
             }]
           }
+      # Example policies: https://docs.aws.amazon.com/codebuild/latest/userguide/sample-ecr.html
+      RepositoryPolicyText:
+        Version: "2012-10-17"
+        Statement:
+        - Sid: "CodeBuildAccessPrincipal"
+          Effect: "Allow"
+          Principal:
+            Service: "codebuild.amazonaws.com"
+          Action:
+          - "ecr:GetDownloadUrlForLayer"
+          - "ecr:BatchGetImage"
+          - "ecr:BatchCheckLayerAvailability"
+        - Sid: "FullAccess"
+          Effect: "Allow"
+          Principal:
+            AWS:
+            - !Sub "arn:aws:iam::${AWS::AccountId}:root"
+          Action:
+          - "ecr:*"
+        - !If
+          - Production
+          - - Sid: "PushOnly"
+              Effect: "Allow"
+              Principal:
+                AWS:
+                - !Sub "arn:aws:iam::${EcrExternalAccount}:root"
+              Action:
+              - "ecr:BatchGetImage"
+              - "ecr:BatchCheckLayerAvailability"
+              - "ecr:CompleteLayerUpload"
+              - "ecr:DescribeImages"
+              - "ecr:GetAuthorizationToken"
+              - "ecr:GetDownloadUrlForLayer"
+              - "ecr:InitiateLayerUpload"
+              - "ecr:PutImage"
+              - "ecr:PutImageScanningConfiguration"
+              - "ecr:UploadLayerPart"
+          - !Ref "AWS::NoValue"
       Tags:
       - Key: "Name"
         Value: !Ref "AWS::StackName"
@@ -113,6 +140,7 @@ Metadata:
         default: "ECS Repository (ECR) Configuration"
       Parameters:
       - EcsRepositoryName
+      - EcrExternalAccount
       - EcrImageCount
       - EcrImageScanning
       - EcrImageTagMutability
@@ -125,6 +153,8 @@ Metadata:
         default: "Infrastructure Name:"
       EcsRepositoryName:
         default: "ECS Repository Name:"
+      EcrExternalAccount:
+        default: "ECR External Account:"
       EcrImageCount:
         default: "ECR Image Count:"
       EcrImageScanning:
