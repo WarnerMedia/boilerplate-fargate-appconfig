@@ -1,5 +1,6 @@
 {
   "Parameters": {
+    "CodeBuildCustomDockerImage": "boilerplate/codebuild:infrastructure-test-latest",
     "CodeBuildSpecPath": "build/aws/codebuild/buildspec/test/infrastructure/amzn2.yaml"
   }
 }
