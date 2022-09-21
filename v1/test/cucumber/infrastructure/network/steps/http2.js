@@ -91,7 +91,7 @@ When('we connect via the {string} protocol', (value,done) => {
 
 });
 
-Then('we should not receive a connection error', (value) => {
+Then('we should not receive a connection error', () => {
 
   assert.strictEqual(isHttp2,true);
 
