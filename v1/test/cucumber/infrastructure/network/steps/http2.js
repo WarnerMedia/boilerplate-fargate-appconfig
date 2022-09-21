@@ -5,7 +5,7 @@ import http2 from "node:http2";
 //Set global variables.
 let isHttp2 = false;
 
-When('we request the homepage via the {string} protocol', (value,done) => {
+When('we connect via the {string} protocol', (value,done) => {
 
   function testHttp2() {
 
@@ -91,7 +91,7 @@ When('we request the homepage via the {string} protocol', (value,done) => {
 
 });
 
-Then('we should receive a response via the {string} protocol', (value) => {
+Then('we should not receive a connection error', (value) => {
 
   assert.strictEqual(isHttp2,true);
 
