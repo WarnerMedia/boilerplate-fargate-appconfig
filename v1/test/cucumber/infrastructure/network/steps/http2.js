@@ -13,7 +13,7 @@ When('we request the homepage via the {string} protocol', (value,done) => {
 
     const client = http2.connect(`https://${domain}:443`);
 
-    client.setTimeout(5000); //Set the timer for five seconds.
+    client.setTimeout(10000); //Set the timer for five seconds.
 
     function returnClientError(error) {
   
@@ -40,10 +40,20 @@ When('we request the homepage via the {string} protocol', (value,done) => {
     function returnClientConnect() {
   
       console.info("Connection is ready...");
-  
+
       /* Set the flag to true, because a connection was made,
          we might still get an HTTP/2 error, but that will come later */
       isHttp2 = true;
+  
+      function waitHttp2Check() {
+  
+        console.info("Closing the connection...");
+        client.close();
+        done();
+  
+      }
+  
+      setTimeout(waitHttp2Check, 3000);
   
     }
   
