@@ -21,11 +21,11 @@ When('we connect via the {string} protocol', (value,done) => {
   
       if (error.code == "ERR_HTTP2_ERROR") {
   
-        console.info("HTTP/2 is not enabled.");
+        console.info("Connection was established, but HTTP/2 is not enabled.");
   
       } else {
   
-        console.error("Some other connection error.");
+        console.error(`The following connection error has occurred: ${error.code}`);
   
       }
   
@@ -53,7 +53,7 @@ When('we connect via the {string} protocol', (value,done) => {
   
       }
   
-      setTimeout(waitHttp2Check, 3000);
+      setTimeout(waitHttp2Check, 2000);
   
     }
   
