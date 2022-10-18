@@ -430,8 +430,6 @@ function handleRequest(request, response) {
 
     if (!credentials || credentials.name !== LOGIN || credentials.pass !== PASSWD) {
 
-      console.error("Bad Creds");
-
       displayBasicAuth();
 
     } else {
