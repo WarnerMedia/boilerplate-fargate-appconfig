@@ -63,7 +63,7 @@ Resources:
       Content: !Sub |
         body:
           author: "${Author}"
-          description: "${SiteDescription}"
+          description: "${SiteDescription} (${TagEnvironment})"
           image: "${ImageUrl}"
           subtitle: "${Subtitle}"
           title: "${Title}"
