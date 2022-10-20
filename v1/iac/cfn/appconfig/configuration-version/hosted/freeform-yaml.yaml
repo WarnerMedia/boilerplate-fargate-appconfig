@@ -65,7 +65,7 @@ Resources:
           author: "${Author}"
           description: "${SiteDescription} (${TagEnvironment})"
           image: "${ImageUrl}"
-          subtitle: "${Subtitle}"
+          subtitle: "${Subtitle} (${TagEnvironment})"
           title: "${Title}"
           type: "${SiteType}"
           url: "${SiteUrl}"
