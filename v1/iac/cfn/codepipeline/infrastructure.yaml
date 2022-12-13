@@ -182,12 +182,16 @@ Parameters:
     Default: "boilerplate/fargate-nodejs"
   EcrNonProdAccount:
     Type: "String"
-    Description: "The Account ID for the non-prod account."
+    Description: "The Account ID for the non-prod account.  Keep the default value if there is none."
     Default: "111111122222"
   EcrProdAccount:
     Type: "String"
-    Description: "The Account ID for the non-prod account."
+    Description: "The Account ID for the non-prod account.  Keep the default value if there is none."
     Default: "222221111111"
+  EcrSharedAccount:
+    Type: "String"
+    Description: "The Account ID for the non-prod account.  Keep the default value if there is none."
+    Default: "111122222111"
   EcrNonProdImageCount:
     Type: "String"
     Description: "The number of non-prod ECR images to keep."
@@ -971,6 +975,7 @@ Resources:
                   "AppBaseFolder": "${AppBaseFolder}",
                   "EcrProdAccount": "${EcrProdAccount}",
                   "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildCustomDockerImageAccountId": "${EcrSharedAccount}",
                   "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
                   "CodeBuildUnstableBranch": "${UnstableBranch}",
                   "CodeBuildGitHubOAuthTokenName": "${GitHubOAuthTokenName}",
@@ -1013,6 +1018,7 @@ Resources:
                   "AppBaseFolder": "${AppBaseFolder}",
                   "EcrProdAccount": "${EcrProdAccount}",
                   "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildCustomDockerImageAccountId": "${EcrSharedAccount}",
                   "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
                   "CodeBuildUnstableBranch": "${UnstableBranch}",
                   "CodeBuildGitHubOAuthTokenName": "${GitHubOAuthTokenName}",
@@ -1055,6 +1061,7 @@ Resources:
                   "AppBaseFolder": "${AppBaseFolder}",
                   "EcrProdAccount": "${EcrProdAccount}",
                   "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildCustomDockerImageAccountId": "${EcrSharedAccount}",
                   "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
                   "CodeBuildUnstableBranch": "${UnstableBranch}",
                   "CodeBuildGitHubOAuthTokenName": "${GitHubOAuthTokenName}",
@@ -1099,6 +1106,7 @@ Resources:
                   "AppBaseFolder": "${AppBaseFolder}",
                   "EcrProdAccount": "${EcrProdAccount}",
                   "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildCustomDockerImageAccountId": "${EcrSharedAccount}",
                   "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
                   "CodeBuildUnstableBranch": "${UnstableBranch}",
                   "CodeBuildGitHubOAuthTokenName": "${GitHubOAuthTokenName}",
@@ -1187,6 +1195,7 @@ Resources:
                   "AppBaseFolder": "${AppBaseFolder}",
                   "EcrProdAccount": "${EcrProdAccount}",
                   "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildCustomDockerImageAccountId": "${EcrSharedAccount}",
                   "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
                   "CodeBuildUnstableBranch": "${UnstableBranch}",
                   "CodeBuildGitHubOAuthTokenName": "${GitHubOAuthTokenName}",
@@ -1227,6 +1236,7 @@ Resources:
                 "ProjectName": "${ProjectName}-app-test",
                 "AppBaseFolder": "${AppBaseFolder}",
                 "EcsRepositoryName": "${EcsRepositoryName}",
+                "CodeBuildCustomDockerImageAccountId": "${EcrSharedAccount}",
                 "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
                 "TagEnvironment": "${EcrEnvironment}"
               }
@@ -1267,6 +1277,7 @@ Resources:
                   "ProjectName": "${ProjectName}-app-test",
                   "AppBaseFolder": "${AppBaseFolder}",
                   "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildCustomDockerImageAccountId": "${EcrSharedAccount}",
                   "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_SECONDARY_REGION", "out.json", "RoleArn" ] },
                   "TagEnvironment": "${EcrEnvironment}"
                 }
@@ -1306,6 +1317,7 @@ Resources:
                 "ProjectName": "${ProjectName}-infrastructure-test",
                 "AppBaseFolder": "${AppBaseFolder}",
                 "EcsRepositoryName": "${EcsRepositoryName}",
+                "CodeBuildCustomDockerImageAccountId": "${EcrSharedAccount}",
                 "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
                 "TagEnvironment": "${EcrEnvironment}"
               }
@@ -1346,6 +1358,7 @@ Resources:
                   "ProjectName": "${ProjectName}-infrastructure-test",
                   "AppBaseFolder": "${AppBaseFolder}",
                   "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildCustomDockerImageAccountId": "${EcrSharedAccount}",
                   "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_SECONDARY_REGION", "out.json", "RoleArn" ] },
                   "TagEnvironment": "${EcrEnvironment}"
                 }
@@ -1385,6 +1398,7 @@ Resources:
                 "ProjectName": "${ProjectName}-security-test",
                 "AppBaseFolder": "${AppBaseFolder}",
                 "EcsRepositoryName": "${EcsRepositoryName}",
+                "CodeBuildCustomDockerImageAccountId": "${EcrSharedAccount}",
                 "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_PRIMARY_REGION", "out.json", "RoleArn" ] },
                 "TagEnvironment": "${EcrEnvironment}"
               }
@@ -1425,6 +1439,7 @@ Resources:
                   "ProjectName": "${ProjectName}-security-test",
                   "AppBaseFolder": "${AppBaseFolder}",
                   "EcsRepositoryName": "${EcsRepositoryName}",
+                  "CodeBuildCustomDockerImageAccountId": "${EcrSharedAccount}",
                   "CodeBuildRoleArn": { "Fn::GetParam" : [ "CODEBUILD_ROLE_OUTPUT_SECONDARY_REGION", "out.json", "RoleArn" ] },
                   "TagEnvironment": "${EcrEnvironment}"
                 }
@@ -4122,6 +4137,7 @@ Metadata:
       - EcsRepositoryName
       - EcrNonProdAccount
       - EcrProdAccount
+      - EcrSharedAccount
       - EcrNonProdImageCount
       - EcrProdImageCount
     - Label:
@@ -4220,6 +4236,8 @@ Metadata:
         default: "ECR Non-Prod Account:"
       EcrProdAccount:
         default: "ECR Production Account:"
+      EcrSharedAccount:
+        default: "ECR Shared Account:"
       EcrNonProdImageCount:
         default: "ECR Non-Prod Image Count:"
       EcrProdImageCount:

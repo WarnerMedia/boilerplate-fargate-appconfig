@@ -64,6 +64,42 @@ Parameters:
     Type: "String"
     Description: "Custom ECR docker image for CodeBuild."
     Default: ""
+  CodeBuildCustomDockerImageAccountId:
+    Type: "String"
+    Description: "The AWS account ID where the custom ECR docker image is hosted."
+    Default: ""
+  CodeBuildCustomDockerImageRegion:
+    Type: "String"
+    Description: "The AWS region where the custom ECR docker image is hosted."
+    AllowedValues:
+    - "us-east-1"
+    - "us-east-2"
+    - "us-west-1"
+    - "us-west-2"
+    - "af-south-1"
+    - "ap-east-1"
+    - "ap-south-1"
+    - "ap-northeast-2"
+    - "ap-southeast-1"
+    - "ap-southeast-2"
+    - "ap-northeast-1"
+    - "ca-central-1"
+    - "eu-central-1"
+    - "eu-west-1"
+    - "eu-west-2"
+    - "eu-south-1"
+    - "eu-west-3"
+    - "eu-north-1"
+    - "me-south-1"
+    - "sa-east-1"
+    Default: "us-east-2"
+  UseExternalDockerImage:
+    Type: "String"
+    Description: "Should the custom docker image be pulled from the external AWS account and region?"
+    AllowedValues:
+    - "Yes"
+    - "No"
+    Default: "Yes"
   CodeBuildTimeoutInMinutes:
     Type: "Number"
     Default: 10
@@ -102,6 +138,7 @@ Parameters:
 Conditions:
   AppBaseFolder: !Not [ !Equals [ !Ref AppBaseFolder, "" ] ]
   CodeBuildCustomDockerImage: !Not [ !Equals [ !Ref CodeBuildCustomDockerImage, "" ] ]
+  UseExternalDockerImage: !Equals [ !Ref UseExternalDockerImage, "Yes" ]
 Resources:
   CodeBuildProject:
     Type: "AWS::CodeBuild::Project"
@@ -142,8 +179,9 @@ Resources:
           Value: !Sub "{{resolve:ssm:/s3/${InfrastructureName}/bucket/artifact/name}}"
         - Name: "UNSTABLE_BRANCH"
           Value: !Ref CodeBuildUnstableBranch
-        # TODO: Add image logic for ECR images: "account-ID.dkr.ecr.region-ID.amazonaws.com/your-Amazon-ECR-repo-name:tag"
-        Image: !If [ CodeBuildCustomDockerImage, !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${CodeBuildCustomDockerImage}", !Ref CodeBuildDockerImage ]
+        # TODO: Add image logic for ECR images: "account-ID.dkr.ecr.region-ID.amazonaws.com/your-Amazon-ECR-repo-name:tag" 
+        # Image: !If [ CodeBuildCustomDockerImage, !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${CodeBuildCustomDockerImage}", !Ref CodeBuildDockerImage ]
+        Image: !If [ CodeBuildCustomDockerImage, !If [ UseExternalDockerImage, !Sub "${CodeBuildCustomDockerImageAccountId}.dkr.ecr.${CodeBuildCustomDockerImageRegion}.amazonaws.com/${CodeBuildCustomDockerImage}", !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${CodeBuildCustomDockerImage}" ], !Ref CodeBuildDockerImage ]
         PrivilegedMode: true
         Type: "LINUX_CONTAINER"
       TimeoutInMinutes: !Ref CodeBuildTimeoutInMinutes
@@ -206,6 +244,9 @@ Metadata:
       - CodeBuildGitHubOAuthTokenName
       - CodeBuildComputeType
       - CodeBuildCustomDockerImage
+      - CodeBuildCustomDockerImageAccountId
+      - CodeBuildCustomDockerImageRegion
+      - UseExternalDockerImage
       - CodeBuildDockerImage
       - CodeBuildTimeoutInMinutes
       - CodeBuildUnstableBranch
@@ -248,6 +289,12 @@ Metadata:
         default: "CodeBuild Compute Type:"
       CodeBuildCustomDockerImage:
         default: "CodeBuild Custom Docker Image:"
+      CodeBuildCustomDockerImageAccountId:
+        default: "CodeBuild Custom Docker Image AWS Account ID:"
+      CodeBuildCustomDockerImageRegion:
+        default: "CodeBuild Custom Docker Image Region:"
+      UseExternalDockerImage:
+        default: "Use External Docker Image:"
       CodeBuildDockerImage:
         default: "CodeBuild Docker Image:"
       CodeBuildTimeoutInMinutes:
