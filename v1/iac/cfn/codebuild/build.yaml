@@ -182,6 +182,7 @@ Resources:
         # TODO: Add image logic for ECR images: "account-ID.dkr.ecr.region-ID.amazonaws.com/your-Amazon-ECR-repo-name:tag" 
         # Image: !If [ CodeBuildCustomDockerImage, !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${CodeBuildCustomDockerImage}", !Ref CodeBuildDockerImage ]
         Image: !If [ CodeBuildCustomDockerImage, !If [ UseExternalDockerImage, !Sub "${CodeBuildCustomDockerImageAccountId}.dkr.ecr.${CodeBuildCustomDockerImageRegion}.amazonaws.com/${CodeBuildCustomDockerImage}", !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${CodeBuildCustomDockerImage}" ], !Ref CodeBuildDockerImage ]
+        ImagePullCredentialsType: !If [ UseExternalDockerImage, "SERVICE_ROLE", "CODEBUILD" ]
         PrivilegedMode: true
         Type: "LINUX_CONTAINER"
       TimeoutInMinutes: !Ref CodeBuildTimeoutInMinutes
