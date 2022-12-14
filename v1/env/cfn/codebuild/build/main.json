@@ -1,7 +1,7 @@
 {
   "Parameters": {
     "AutomaticReject": "Yes",
-    "CodeBuildCustomDockerImage": "boilerplate/codebuild:nodejs-build-latest",
+    "CodeBuildCustomDockerImage": "main/custom-codebuild-images:nodejs-build-latest",
     "CodeBuildDockerImage": "aws/codebuild/amazonlinux2-x86_64-standard:4.0",
     "CodeBuildSpecPath": "build/aws/codebuild/buildspec/build/alpine.yaml"
   }
