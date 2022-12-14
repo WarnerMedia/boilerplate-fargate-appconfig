@@ -1,6 +1,6 @@
 {
   "Parameters": {
-    "CodeBuildCustomDockerImage": "boilerplate/codebuild:infrastructure-test-latest",
+    "CodeBuildCustomDockerImage": "main/custom-codebuild-images:infrastructure-test-latest",
     "CodeBuildSpecPath": "build/aws/codebuild/buildspec/test/infrastructure/alpine.yaml"
   }
 }
