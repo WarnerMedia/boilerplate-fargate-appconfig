@@ -1,7 +1,8 @@
 {
   "Parameters": {
-    "CodeBuildCustomDockerImage": "main/custom-codebuild-images:application-test-latest",
+    "CodeBuildCustomDockerImage": "boilerplate/codebuild:application-test-latest",
     "CodeBuildDockerImage": "aws/codebuild/amazonlinux2-x86_64-standard:4.0",
-    "CodeBuildSpecPath": "build/aws/codebuild/buildspec/test/app/alpine.yaml"
+    "CodeBuildSpecPath": "build/aws/codebuild/buildspec/test/app/alpine.yaml",
+    "UseExternalDockerImage": "No"
   }
 }
